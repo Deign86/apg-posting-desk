@@ -17,7 +17,7 @@ inspection once it is exposed in the Codex tool list.
    - `VITE_FIREBASE_AUTH_DOMAIN=apg-posting-desk-deign-2026.firebaseapp.com`
    - `VITE_FIREBASE_PROJECT_ID=apg-posting-desk-deign-2026`
    - `VITE_FIREBASE_APP_ID=1:676310407748:web:9ab12f1c0ebcab17fbba11`
-6. Set `VITE_APG_GOOGLE_DOMAIN` to the APG Workspace hosted domain.
+6. Set `VITE_APG_GOOGLE_DOMAIN` to the APG Workspace hosted domain (optional — leave blank for normal existing Google accounts).
 
 ## Firestore
 

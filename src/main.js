@@ -74,11 +74,12 @@ const firebaseConfig = {
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
-const hostedDomain = import.meta.env.VITE_APG_GOOGLE_DOMAIN;
+const hostedDomain = (import.meta.env.VITE_APG_GOOGLE_DOMAIN || "").trim();
+const shouldRestrictDomain = hostedDomain && !hostedDomain.endsWith(".example");
 const firebaseReady = Object.values(firebaseConfig).every(Boolean);
 const auth = firebaseReady ? getAuth(initializeApp(firebaseConfig)) : null;
 const provider = new GoogleAuthProvider();
-if (hostedDomain) {
+if (shouldRestrictDomain) {
   provider.setCustomParameters({ hd: hostedDomain });
 }
 
