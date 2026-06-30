@@ -18,8 +18,26 @@ class GoogleDriveRepository:
         self.listings_folder_id = listings_folder_id
 
     def find_property_folder(self, property_name: str) -> dict | None:
+        """Search recursively through the listings folder for a property by name."""
+        return self._search_folder_recursive(
+            self.listings_folder_id,
+            property_name.strip().lower(),
+            depth=0,
+            max_depth=5,
+        )
+
+    def _search_folder_recursive(
+        self,
+        folder_id: str,
+        target_name: str,
+        *,
+        depth: int,
+        max_depth: int,
+    ) -> dict | None:
+        if depth > max_depth:
+            return None
         query = (
-            f"'{self.listings_folder_id}' in parents and "
+            f"'{folder_id}' in parents and "
             "mimeType = 'application/vnd.google-apps.folder' and trashed = false"
         )
         response = (
@@ -28,8 +46,18 @@ class GoogleDriveRepository:
             .execute()
         )
         for folder in response.get("files", []):
-            if folder["name"].strip().lower() == property_name.strip().lower():
+            if folder["name"].strip().lower() == target_name:
                 return self._folder_payload(folder)
+        # Not found at this level — recurse into subfolders
+        for folder in response.get("files", []):
+            result = self._search_folder_recursive(
+                folder["id"],
+                target_name,
+                depth=depth + 1,
+                max_depth=max_depth,
+            )
+            if result is not None:
+                return result
         return None
 
     def _folder_payload(self, folder: dict) -> dict:
