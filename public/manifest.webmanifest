@@ -3,8 +3,8 @@
   "short_name": "APG Desk",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f4f0e8",
-  "theme_color": "#15241f",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
   "icons": [
     {
       "src": "/icon.svg",

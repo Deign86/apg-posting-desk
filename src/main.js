@@ -26,71 +26,16 @@ if (shouldRestrictDomain) {
   provider.setCustomParameters({ hd: hostedDomain });
 }
 
+const APG_LISTINGS_URL = "https://drive.google.com/drive/folders/1GXeGULYswb7jXcMGCCRm2RQ_h0EKsDll";
+
 let currentUser = null;
 let session = {
-  firebase_project_id: firebaseConfig.projectId || "demo",
-  user: { uid: "demo-maam-jean", email: "demo@apg.local", role: "maam_jean", display_name: "Ma'am Jean" },
+  firebase_project_id: firebaseConfig.projectId || "",
+  user: null,
 };
 
-const demoJobs = [
-  {
-    id: "APG-2401",
-    propertyName: "Novaliches, 440 Bagbag",
-    assignedBy: "Ma'am Jean",
-    operator: "Deign",
-    dueDate: "2026-06-30",
-    driveUrl: "https://drive.google.com/demo/bagbag",
-    imageCount: 4,
-    hasCaptionDoc: true,
-    docName: "Bagbag-caption.docx",
-    status: "ready-to-post",
-    trackerStatus: "pending",
-    details: "Townhouse for sale in Novaliches with clean title, near transport, schools, and daily essentials.",
-    images: [
-      { id: "img1", label: "front-view.jpg", selected: true },
-      { id: "img2", label: "living-area.jpg", selected: true },
-      { id: "img3", label: "kitchen.jpg", selected: true },
-      { id: "img4", label: "street-access.jpg", selected: false },
-    ],
-    variants: [
-      "Ready for posting: Novaliches, 440 Bagbag with practical access to transport, schools, and essentials. Message APG for viewing details.",
-      "APG listing prepared for Novaliches, 440 Bagbag. Review the photos, confirm details, and coordinate viewing through the assigned operator.",
-      "For Facebook posting: Novaliches, 440 Bagbag. Clean property details, selected photos, and tracker preview are ready for manual publishing.",
-    ],
-    finalCaption: "Novaliches, 440 Bagbag is ready for viewing. This property offers practical access to transport, schools, and daily essentials. Message APG for details and schedule coordination.",
-    facebookLink: "",
-    activity: [
-      { at: "09:18", text: "Ma'am Jean assigned APG-2401 to Deign." },
-      { at: "09:24", text: "Drive validation passed with 4 images and 1 caption doc." },
-      { at: "09:32", text: "Caption variants generated with APG rule check." },
-    ],
-  },
-  {
-    id: "APG-2402",
-    propertyName: "Fairview, Dahlia Avenue",
-    assignedBy: "Admin",
-    operator: "Rhea",
-    dueDate: "2026-06-30",
-    driveUrl: "https://drive.google.com/demo/fairview",
-    imageCount: 2,
-    hasCaptionDoc: true,
-    docName: "Fairview-caption.docx",
-    status: "missing-assets",
-    trackerStatus: "blocked",
-    details: "Condo unit near Commonwealth corridor. Needs price confirmation before posting.",
-    images: [
-      { id: "img1", label: "unit-main.jpg", selected: true },
-      { id: "img2", label: "amenity.jpg", selected: false },
-    ],
-    variants: [],
-    finalCaption: "",
-    facebookLink: "",
-    activity: [{ at: "10:05", text: "Validation flagged missing third selected photo." }],
-  },
-];
-
-let jobs = [...demoJobs];
-let activeJobId = jobs[0].id;
+let jobs = [];
+let activeJobId = null;
 
 const refs = {
   jobList: el("jobList"),
@@ -156,7 +101,7 @@ if ("serviceWorker" in navigator) {
 }
 
 function activeJob() {
-  return jobs.find((j) => j.id === activeJobId) || jobs[0];
+  return jobs.find((j) => j.id === activeJobId) || jobs[0] || null;
 }
 
 function log(message) {
@@ -171,6 +116,29 @@ function toast(message) {
   refs.toast.classList.add("show");
   clearTimeout(window.__toastTimer);
   window.__toastTimer = setTimeout(() => refs.toast.classList.remove("show"), 2200);
+}
+
+function setLoading(isLoading) {
+  const spinner = document.getElementById("loadingSpinner");
+  if (spinner) spinner.classList.toggle("hidden", !isLoading);
+  refs.connectionStatus.setAttribute("aria-busy", String(isLoading));
+}
+
+function showError(message) {
+  const banner = document.getElementById("errorBanner");
+  if (!banner) return;
+  const text = banner.querySelector(".error-banner-text");
+  if (text) text.textContent = message;
+  banner.classList.add("show");
+}
+
+function hideError() {
+  const banner = document.getElementById("errorBanner");
+  if (banner) banner.classList.remove("show");
+}
+
+function renderEmptyState() {
+  refs.jobList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">!</div><div class="empty-state-title">No jobs assigned</div><div class="empty-state-hint">Click "New intake" or "Process next" to begin.</div></div>';
 }
 
 async function copyText(text, message) {
@@ -206,10 +174,10 @@ function normalizeJob(raw) {
   return {
     id: raw.id || raw.property_id || "unknown",
     propertyName: raw.property_name || raw.propertyName || "Unnamed property",
-    assignedBy: raw.assigned_by || raw.assignedBy || "Ma'am Jean",
+    assignedBy: raw.assigned_by || raw.assignedBy || "",
     operator: raw.operator || "Unassigned",
     dueDate: raw.due_date || raw.dueDate || new Date().toISOString().slice(0, 10),
-    driveUrl: raw.drive_url || raw.driveUrl || "",
+    driveUrl: raw.drive_url || raw.driveUrl || APG_LISTINGS_URL,
     imageCount: raw.image_count ?? raw.imageCount ?? images.length,
     hasCaptionDoc: Boolean(raw.caption_document_name || raw.hasCaptionDoc || raw.caption_details || raw.details),
     docName: raw.caption_document_name || raw.docName || "",
@@ -233,11 +201,20 @@ function normalizeVariants(data) {
 
 function renderJobList() {
   refs.jobList.innerHTML = "";
+  if (jobs.length === 0) {
+    renderEmptyState();
+    refs.assignedCount.textContent = "0";
+    refs.approvalCount.textContent = "0";
+    refs.readyCount.textContent = "0";
+    refs.postedCount.textContent = "0";
+    return;
+  }
   jobs.forEach((job) => {
     const [label, cls] = statusBadge(job.status);
     const btn = doc.createElement("button");
     btn.className = "job-row" + (job.id === activeJobId ? " active" : "");
     btn.type = "button";
+    btn.setAttribute("aria-current", job.id === activeJobId ? "page" : "false");
     btn.innerHTML = `
       <div class="row-top"><strong>${job.propertyName}</strong><span class="badge ${cls}">${label}</span></div>
       <div class="muted">${job.id}</div>
@@ -261,11 +238,12 @@ function renderJobList() {
 
 function hydrateForm() {
   const job = activeJob();
-  refs.propertyName.value = job.propertyName;
+  if (!job) return;
+  refs.propertyName.value = job.propertyName || "";
   refs.assignedBy.value = job.assignedBy;
   refs.operatorName.value = job.operator;
   refs.dueDate.value = job.dueDate;
-  refs.driveUrl.value = job.driveUrl;
+  refs.driveUrl.value = APG_LISTINGS_URL;
   refs.captionDetails.value = job.details;
   refs.finalCaption.value = job.finalCaption || "";
   refs.facebookLink.value = job.facebookLink || "";
@@ -283,6 +261,7 @@ function hydrateForm() {
 
 function syncFormToJob() {
   const job = activeJob();
+  if (!job) return;
   job.propertyName = refs.propertyName.value.trim();
   job.assignedBy = refs.assignedBy.value.trim();
   job.operator = refs.operatorName.value.trim();
@@ -295,6 +274,7 @@ function syncFormToJob() {
 
 function renderValidation() {
   const job = activeJob();
+  if (!job) return;
   const checks = [
     { label: "Drive folder URL provided", ok: !!job.driveUrl },
     { label: "At least 3 images found", ok: job.imageCount >= 3 },
@@ -315,13 +295,14 @@ function renderValidation() {
 
 function renderThumbs() {
   const job = activeJob();
+  if (!job) return;
   refs.thumbs.innerHTML = "";
   job.images.forEach((img, index) => {
     const card = doc.createElement("div");
     card.className = "thumb" + (img.selected ? " active" : "");
     card.innerHTML = `
       <button type="button" data-id="${img.id}">
-        <div class="photo">Photo ${index + 1}</div>
+        <img src="${img.url}" alt="${img.label}" class="thumb-img" loading="lazy" />
         <div class="thumb-meta"><strong>${img.label}</strong><span class="muted mono">${img.selected ? "selected" : "not selected"}</span></div>
       </button>
     `;
@@ -361,6 +342,7 @@ function checkCaptionRules(text) {
 
 function renderVariants() {
   const job = activeJob();
+  if (!job) return;
   refs.captionVariants.innerHTML = "";
   job.variants.forEach((text, idx) => {
     const card = doc.createElement("div");
@@ -390,6 +372,7 @@ function renderVariants() {
 
 function renderMetrics() {
   const job = activeJob();
+  if (!job) return;
   refs.metricProperty.textContent = job.propertyName || "-";
   refs.metricAgent.textContent = "Assigned by " + (job.assignedBy || "-");
   refs.metricAssets.textContent = `${job.imageCount} images / ${job.images.filter((i) => i.selected).length} selected`;
@@ -401,6 +384,7 @@ function renderMetrics() {
 
 function prepareTrackerPreview() {
   const job = activeJob();
+  if (!job) return;
   const selectedImages = job.images.filter((i) => i.selected).length;
   refs.trackerPreview.value = [
     job.id,
@@ -443,9 +427,9 @@ function renderAll() {
 
 function renderSession() {
   const role = session.user?.role || "user";
-  const name = session.user?.display_name || session.user?.email || "Demo operator";
+  const name = session.user?.display_name || session.user?.email || "Not signed in";
   refs.roleBadge.textContent = role;
-  refs.userLabel.textContent = `${name} · ${roleCopy(role)} · ${session.firebase_project_id || "demo"}`;
+  refs.userLabel.textContent = session.user ? `${name} · ${roleCopy(role)} · ${session.firebase_project_id || ""}` : "Not signed in.";
   refs.sessionTitle.textContent = "Role access";
 }
 
@@ -457,13 +441,22 @@ function roleCopy(role) {
 
 function updateWorkflowGuide() {
   const job = activeJob();
+  if (!job) return;
   const canDownload = workflowState.prepared && job.images.length > 0;
   const canCopyCaption = workflowState.downloadedAssets && workflowState.generatedCaption;
   const canOpenFacebook = workflowState.copiedCaption;
   const canEnterFacebookUrl = workflowState.copiedCaption && workflowState.openedFacebook && refs.checkPostedToFacebook.checked;
   const canLogPost = canEnterFacebookUrl && workflowState.enteredFacebookUrl && refs.checkCaptionApproved.checked && refs.checkPhotosSelected.checked;
   refs.facebookUrlGroup.hidden = !canEnterFacebookUrl;
-  refs.logButton.disabled = !canLogPost;
+  if (workflowState.loggedPost) {
+    refs.logButton.textContent = "Post logged";
+    refs.logButton.disabled = true;
+    refs.logButton.setAttribute("aria-disabled", "true");
+  } else {
+    refs.logButton.textContent = "Log post";
+    refs.logButton.disabled = !canLogPost;
+    refs.logButton.setAttribute("aria-disabled", String(!canLogPost));
+  }
   setStepState("download", workflowState.downloadedAssets, canDownload);
   setStepState("copy", workflowState.copiedCaption, canCopyCaption);
   setStepState("facebook", workflowState.openedFacebook, canOpenFacebook);
@@ -475,15 +468,30 @@ function setStepState(name, complete, enabled) {
   const step = doc.querySelector(`.workflow-step[data-step="${name}"]`);
   if (!step) return;
   step.dataset.state = complete ? "complete" : enabled ? "active" : "locked";
+  step.setAttribute("aria-current", step.dataset.state === "active" ? "step" : "false");
   const marker = step.querySelector(".step-marker");
   marker.textContent = complete ? "Done" : marker.dataset.number;
 }
 
 function resetWorkflowState() {
   const job = activeJob();
+  if (job && (job.status === "posted" || job.status === "posted_today" || job.status === "posted-today")) {
+    workflowState.prepared = true;
+    workflowState.downloadedAssets = true;
+    workflowState.generatedCaption = true;
+    workflowState.copiedCaption = true;
+    workflowState.openedFacebook = true;
+    workflowState.enteredFacebookUrl = true;
+    workflowState.loggedPost = true;
+    refs.facebookUrlGroup.hidden = false;
+    refs.checkCaptionApproved.checked = true;
+    refs.checkPhotosSelected.checked = true;
+    refs.checkPostedToFacebook.checked = true;
+    return;
+  }
   workflowState.prepared = true;
   workflowState.downloadedAssets = false;
-  workflowState.generatedCaption = Boolean(job.finalCaption || job.variants.length);
+  workflowState.generatedCaption = Boolean(job && (job.finalCaption || job.variants.length));
   workflowState.copiedCaption = false;
   workflowState.openedFacebook = false;
   workflowState.enteredFacebookUrl = false;
@@ -491,6 +499,7 @@ function resetWorkflowState() {
   refs.facebookLink.value = "";
   refs.checkCaptionApproved.checked = false;
   refs.checkPostedToFacebook.checked = false;
+  refs.logButton.textContent = "Log post";
 }
 
 async function authFetch(url, options = {}) {
@@ -513,6 +522,7 @@ async function requestJson(url, options = {}) {
     return await jsonFromResponse(await authFetch(url, options));
   } catch (error) {
     if (error instanceof Error) {
+      showError(error.message);
       return { ok: false, data: { detail: error.message } };
     }
     throw error;
@@ -530,13 +540,13 @@ async function loadSession() {
 async function loadJobs() {
   const response = await jsonFromResponse(await authFetch("/api/jobs"));
   if (response.ok && Array.isArray(response.data.jobs)) {
-    jobs = response.data.jobs.map((job) => ({ ...demoJobs[0], ...normalizeJob(job) }));
+    jobs = response.data.jobs.map((job) => normalizeJob(job));
   }
   if (!jobs.some((job) => job.id === activeJobId)) {
-    activeJobId = jobs[0].id;
+    activeJobId = jobs.length > 0 ? jobs[0].id : null;
   }
   renderAll();
-  setStatus(response.ok ? "Live queue loaded" : "Demo queue loaded");
+  setStatus(response.ok ? "Live queue loaded" : "Queue not available");
 }
 
 async function loadActivity(jobId) {
@@ -544,6 +554,7 @@ async function loadActivity(jobId) {
     const response = await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/activity`));
     if (response.ok && Array.isArray(response.data.activity)) {
       const job = activeJob();
+      if (!job) return;
       job.activity = response.data.activity;
       renderActivity(job.activity);
     }
@@ -568,6 +579,7 @@ async function createOrPrepareJob() {
 
 async function prepareSelectedJob(source) {
   const job = activeJob();
+  if (!job) return;
   setStatus("Running pipeline");
   const jobId = job.id;
   await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/validate`, { method: "POST" }));
@@ -588,21 +600,22 @@ async function prepareSelectedJob(source) {
   workflowState.generatedCaption = Boolean(job.finalCaption || job.variants.length);
   hydrateForm();
   renderAll();
-  setStatus(prepared.ok || legacy.ok ? "Pipeline ready" : "Demo pipeline ready");
+  setStatus(prepared.ok || legacy.ok ? "Pipeline ready" : "Pipeline preparation failed");
 }
 
 function formPayload() {
   return {
     property_name: refs.propertyName.value.trim(),
-    assigned_by: refs.assignedBy.value.trim() || "Ma'am Jean",
+    assigned_by: refs.assignedBy.value.trim() || "",
     operator: refs.operatorName.value.trim() || "Unassigned",
     due_date: refs.dueDate.value,
-    drive_url: refs.driveUrl.value.trim(),
+    drive_url: APG_LISTINGS_URL,
   };
 }
 
 function setStatus(message) {
   refs.connectionStatus.textContent = message;
+  setLoading(message.includes("Running") || message.includes("Loading") || message.includes("Searching"));
 }
 
 if (auth) {
@@ -614,12 +627,12 @@ if (auth) {
     await loadJobs();
   });
 } else {
-  refs.userLabel.textContent = "Demo mode: Firebase config not loaded. Ma'am Jean workflow is available.";
+  refs.userLabel.textContent = "Firebase config not loaded. Sign in is unavailable.";
 }
 
 refs.signInButton.addEventListener("click", async () => {
   if (!auth) {
-    setStatus("Firebase config missing; staying in demo mode");
+    setStatus("Firebase config not loaded; sign in unavailable");
     return;
   }
   await signInWithPopup(auth, provider);
@@ -637,6 +650,11 @@ el("themeToggle").addEventListener("click", () => {
   root.setAttribute("data-theme", nextTheme);
   localStorage.setItem("apg-theme", nextTheme);
 });
+
+const errorBannerDismiss = document.getElementById("errorBannerDismiss");
+if (errorBannerDismiss) {
+  errorBannerDismiss.addEventListener("click", hideError);
+}
 
 doc.querySelectorAll(".nav-btn").forEach((button) => {
   button.addEventListener("click", () => {
@@ -658,20 +676,42 @@ doc.querySelectorAll(".nav-btn").forEach((button) => {
   });
 });
 
-el("validateAssetsBtn").addEventListener("click", () => {
+el("validateAssetsBtn").addEventListener("click", async () => {
+  hideError();
+  setLoading(true);
+  setStatus("Running pipeline");
   syncFormToJob();
   const job = activeJob();
-  job.hasCaptionDoc = refs.captionDetails.value.trim().length > 0;
-  job.imageCount = job.images.length;
-  renderAll();
-  log("Ran validation for " + job.propertyName);
-  toast(job.status === "missing-assets" ? "Validation blocked." : "Validation passed.");
+  if (!job) {
+    setLoading(false);
+    return;
+  }
+  const isLocalOnly = /^APG-\d{4}-\d+$/i.test(job.id) || (job.status === "missing-assets" && job.images.length === 0);
+  if (isLocalOnly) {
+    await createOrPrepareJob();
+  } else if (job.images.length > 0 || job.status !== "missing-assets") {
+    const response = await requestJson(`/api/jobs/${job.id}/validate`, { method: "POST" });
+    if (response.ok) {
+      Object.assign(job, normalizeJob(response.data));
+    }
+    renderAll();
+    log("Ran API validation for " + job.propertyName);
+    toast(response.ok ? "Validation passed." : "Validation failed.");
+  } else {
+    job.hasCaptionDoc = refs.captionDetails.value.trim().length > 0;
+    job.imageCount = job.images.length;
+    renderAll();
+    log("Ran local validation for " + job.propertyName);
+    toast(job.status === "missing-assets" ? "Validation blocked." : "Validation passed.");
+  }
+  setLoading(false);
 });
 
 const generateCaptionButton = el("generateCaption");
 generateCaptionButton.addEventListener("click", async () => {
   syncFormToJob();
   const job = activeJob();
+  if (!job) return;
   const jobId = job.id;
   const response = await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/captions`, { method: "POST" }));
   const variants = response.ok ? normalizeVariants(response.data) : [];
@@ -685,7 +725,7 @@ generateCaptionButton.addEventListener("click", async () => {
   renderMetrics();
   updateWorkflowGuide();
   log("Generated " + job.variants.length + " caption variants");
-  setStatus(response.ok ? "Caption variants ready" : "Demo caption variants ready");
+  setStatus(response.ok ? "Caption variants ready" : "Caption generation failed");
   toast("Caption variants generated.");
 });
 
@@ -717,6 +757,7 @@ el("copyCaptionBtn").addEventListener("click", () => {
 
 el("copyChecklistBtn").addEventListener("click", () => {
   const job = activeJob();
+  if (!job) return;
   const packet = `PROPERTY: ${job.propertyName}\nASSIGNED BY: ${job.assignedBy}\nIMAGES SELECTED: ${job.images.filter((i) => i.selected).length}\nCAPTION:\n${job.finalCaption || "[pending caption]"}\n\nPOSTING REMINDER:\n1. Open Facebook page\n2. Upload selected images manually\n3. Paste caption\n4. Publish post\n5. Paste Facebook link back into console`;
   copyText(packet, "Posting packet copied.");
 });
@@ -734,14 +775,10 @@ el("openFacebookBtn").addEventListener("click", () => {
   toast("Facebook page opened in a new tab.");
 });
 
-refs.logButton.addEventListener("click", async () => {
+async function executeLogPost() {
   syncFormToJob();
   const job = activeJob();
-  const selectedCount = job.images.filter((i) => i.selected).length;
-  if (!refs.checkCaptionApproved.checked || selectedCount < 3 || !refs.checkPostedToFacebook.checked || !job.facebookLink.trim()) {
-    toast("Complete the manual publish checklist first.");
-    return;
-  }
+  if (!job) return;
   const jobId = job.id;
   const response = await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/mark-posted`, {
     method: "POST",
@@ -758,9 +795,45 @@ refs.logButton.addEventListener("click", async () => {
   workflowState.loggedPost = true;
   renderAll();
   prepareTrackerPreview();
-  log(response.ok ? "Facebook URL logged to tracker." : "Demo tracker sync completed.");
+  log(response.ok ? "Facebook URL logged to tracker." : "Tracker sync completed.");
   toast("Job marked as posted.");
+}
+
+refs.logButton.addEventListener("click", async () => {
+  syncFormToJob();
+  const job = activeJob();
+  if (!job) return;
+  const selectedCount = job.images.filter((i) => i.selected).length;
+  if (!refs.checkCaptionApproved.checked || selectedCount < 3 || !refs.checkPostedToFacebook.checked || !job.facebookLink.trim()) {
+    toast("Complete the manual publish checklist first.");
+    return;
+  }
+  const dialog = document.getElementById("confirmDialog");
+  if (dialog) {
+    const msg = dialog.querySelector("#confirmDialogText");
+    if (msg) msg.textContent = `Log this post to the tracker? Property: ${job.propertyName}, Facebook URL: ${refs.facebookLink.value}. This action cannot be undone.`;
+    dialog.showModal();
+    return;
+  }
+  await executeLogPost();
 });
+
+const confirmBtn = document.getElementById("confirmLogBtn");
+if (confirmBtn) {
+  confirmBtn.addEventListener("click", () => {
+    const dialog = document.getElementById("confirmDialog");
+    if (dialog) dialog.close();
+    executeLogPost();
+  });
+}
+const cancelBtn = document.getElementById("cancelLogBtn");
+if (cancelBtn) {
+  cancelBtn.addEventListener("click", () => {
+    const dialog = document.getElementById("confirmDialog");
+    if (dialog) dialog.close();
+    toast("Log cancelled.");
+  });
+}
 
 el("prepareTrackerBtn").addEventListener("click", () => {
   syncFormToJob();
@@ -776,70 +849,17 @@ el("clearLogBtn").addEventListener("click", () => {
   toast("Activity log cleared.");
 });
 
-el("simulatePipelineBtn").addEventListener("click", () => {
-  const job = activeJob();
-  job.hasCaptionDoc = true;
-  if (job.images.length < 3) {
-    job.images.push({ id: "extra1", label: "Auto-added sample angle", selected: true });
-  }
-  job.imageCount = job.images.length;
-  if (!job.variants.length) job.variants = buildVariants(job.details || refs.captionDetails.value || "Property details pending");
-  if (!job.finalCaption) job.finalCaption = job.variants[0];
-  workflowState.prepared = true;
-  workflowState.generatedCaption = true;
-  hydrateForm();
-  renderAll();
-  refs.captionRuleResult.textContent = "Pipeline simulation completed. Review the generated caption and selected images.";
-  log("Simulated the automation pipeline");
-  toast("Pipeline simulation complete.");
-});
-
-el("seedGoodDataBtn").addEventListener("click", () => {
-  const job = activeJob();
-  job.imageCount = 4;
-  job.hasCaptionDoc = true;
-  job.docName = "Clean-sample-caption.txt";
-  if (job.images.length < 4) {
-    job.images = [
-      { id: "img1", label: "Main facade", selected: true },
-      { id: "img2", label: "Interior shot", selected: true },
-      { id: "img3", label: "Secondary angle", selected: true },
-      { id: "img4", label: "Map context", selected: false },
-    ];
-  }
-  job.details = "Property Type: Commercial Unit\nLocation: Pasig\nFloor Area: 95 sqm\nRental: PHP 68,000/month\nNotes: visible frontage, move-in ready, near major roads";
-  hydrateForm();
-  renderAll();
-  log("Loaded clean sample data");
-  toast("Clean sample data loaded.");
-});
-
-el("seedBadDataBtn").addEventListener("click", () => {
-  const job = activeJob();
-  job.imageCount = 2;
-  job.hasCaptionDoc = false;
-  job.docName = "";
-  job.images = [
-    { id: "img1", label: "Only photo 1", selected: true },
-    { id: "img2", label: "Only photo 2", selected: true },
-  ];
-  job.details = "";
-  job.finalCaption = "Negotiables available 😊";
-  hydrateForm();
-  renderAll();
-  log("Loaded broken sample data");
-  toast("Broken sample data loaded.");
-});
-
 el("newJobBtn").addEventListener("click", () => {
-  const nextId = "APG-0629-00" + (jobs.length + 1);
+  const now = new Date();
+  const datePart = String(now.getMonth() + 1).padStart(2, "0") + String(now.getDate()).padStart(2, "0");
+  const nextId = `APG-${datePart}-00${jobs.length + 1}`;
   const job = {
     id: nextId,
-    propertyName: "New Assigned Property",
-    assignedBy: "Ma'am Jean",
-    operator: "Unassigned",
+    propertyName: "",
+    assignedBy: "",
+    operator: "",
     dueDate: new Date().toISOString().slice(0, 10),
-    driveUrl: "",
+    driveUrl: APG_LISTINGS_URL,
     imageCount: 0,
     hasCaptionDoc: false,
     docName: "",
@@ -868,8 +888,12 @@ el("processNext").addEventListener("click", async () => {
     await prepareSelectedJob("queue");
     return;
   }
-  setStatus("Demo fallback loaded next property");
-  activeJobId = jobs[0].id;
+  setStatus(response.data?.detail === "Queue is not configured"
+    ? "Demo mode: queue unavailable. Use New intake to prepare a property manually."
+    : "No queued properties available");
+  if (jobs.length > 0) {
+    activeJobId = jobs[0].id;
+  }
   resetWorkflowState();
   renderAll();
 });
@@ -888,7 +912,7 @@ refs.zipDownload.addEventListener("click", (event) => {
   checkbox.addEventListener("change", updateWorkflowGuide);
 });
 
-doc.documentElement.setAttribute("data-theme", localStorage.getItem("apg-theme") || "light");
+doc.documentElement.setAttribute("data-theme", localStorage.getItem("apg-theme") || "dark");
 renderAll();
 log("Console initialized");
 prepareTrackerPreview();

@@ -1,18 +1,39 @@
 :root {
-  --bg: #f4f0e8;
-  --ink: #15241f;
-  --muted: #66746d;
-  --panel: #fffaf0;
-  --line: #cfc5b3;
-  --accent: #b7382f;
-  --accent-ink: #fff9ef;
-  --focus: #245dff;
-  --shadow: 0 18px 50px rgba(21, 36, 31, 0.14);
-  font-family: Georgia, "Times New Roman", serif;
+  --bg: #0a0a0a;
+  --ink: #e0e0e0;
+  --muted: #9a9489;
+  --panel: #141414;
+  --panel-2: #1a1a1a;
+  --line: rgba(197, 160, 89, 0.2);
+  --line-strong: rgba(197, 160, 89, 0.35);
+  --accent: #c5a059;
+  --accent-hover: #d4af37;
+  --accent-light: #e2c285;
+  --accent-ink: #0a0a0a;
+  --focus: #c5a059;
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.4);
+  font-family: 'Poppins', system-ui, sans-serif;
 }
 
 * {
   box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c5a059;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #d4af37;
 }
 
 body {
@@ -20,8 +41,8 @@ body {
   min-height: 100vh;
   color: var(--ink);
   background:
-    linear-gradient(90deg, rgba(21, 36, 31, 0.05) 1px, transparent 1px),
-    linear-gradient(rgba(21, 36, 31, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(197, 160, 89, 0.05) 1px, transparent 1px),
+    linear-gradient(rgba(197, 160, 89, 0.05) 1px, transparent 1px),
     var(--bg);
   background-size: 32px 32px;
 }
@@ -34,8 +55,8 @@ a {
 
 button,
 .button-link {
-  border: 1px solid var(--ink);
-  background: var(--ink);
+  border: 1px solid var(--accent);
+  background: var(--accent);
   color: var(--accent-ink);
   min-height: 2.75rem;
   padding: 0 1rem;
@@ -44,6 +65,14 @@ button,
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition: all .3s cubic-bezier(.25, 1, .5, 1);
+}
+
+button:hover,
+.button-link:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--accent-ink);
 }
 
 button:disabled,
@@ -68,8 +97,8 @@ a:focus-visible {
 }
 
 .eyebrow {
-  color: var(--accent);
-  font: 700 0.78rem/1.2 "Trebuchet MS", sans-serif;
+  color: var(--accent-light);
+  font: 700 0.78rem/1.2 'Orbitron', sans-serif;
   letter-spacing: 0.08em;
   margin: 0 0 0.35rem;
   text-transform: uppercase;
@@ -77,12 +106,13 @@ a:focus-visible {
 
 h1,
 h2 {
+  font-family: 'Orbitron', sans-serif;
   line-height: 1;
   margin: 0;
 }
 
 h1 {
-  font-size: clamp(2.4rem, 7vw, 5.5rem);
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
   font-weight: 400;
 }
 
@@ -94,7 +124,7 @@ h2 {
   border: 1px solid var(--line);
   background: var(--panel);
   padding: 0.6rem 0.8rem;
-  font-family: "Trebuchet MS", sans-serif;
+  font-family: 'IBM Plex Mono', monospace;
 }
 
 .workspace {
@@ -111,6 +141,8 @@ h2 {
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
   padding: 1rem;
+  backdrop-filter: blur(10px);
+  transition: all .3s cubic-bezier(.25, 1, .5, 1);
 }
 
 .control-panel {
@@ -126,7 +158,7 @@ h2 {
 }
 
 label {
-  font-family: "Trebuchet MS", sans-serif;
+  font-family: 'IBM Plex Mono', monospace;
   font-weight: 700;
 }
 
@@ -135,8 +167,14 @@ input {
   border: 1px solid var(--line);
   min-height: 2.75rem;
   padding: 0 0.75rem;
-  background: #fffdf8;
+  background: var(--panel-2);
   color: var(--ink);
+  transition: all .3s cubic-bezier(.25, 1, .5, 1);
+}
+
+input:hover,
+input:focus {
+  border-color: var(--line-strong);
 }
 
 .inline-controls {
@@ -175,7 +213,7 @@ pre {
 figure {
   border: 1px solid var(--line);
   margin: 0;
-  background: #fffdf8;
+  background: var(--panel-2);
 }
 
 img {
@@ -191,13 +229,26 @@ figcaption {
   gap: 0.5rem;
   justify-content: space-between;
   padding: 0.55rem;
-  font-family: "Trebuchet MS", sans-serif;
+  font-family: 'IBM Plex Mono', monospace;
   font-size: 0.9rem;
 }
 
 figcaption a {
   color: var(--accent);
   font-weight: 700;
+  transition: all .3s cubic-bezier(.25, 1, .5, 1);
+}
+
+figcaption a:hover {
+  color: var(--accent-hover);
+}
+
+a {
+  transition: all .3s cubic-bezier(.25, 1, .5, 1);
+}
+
+a:hover {
+  color: var(--accent-hover);
 }
 
 @media (max-width: 900px) {
@@ -216,5 +267,7 @@ figcaption a {
   *::before,
   *::after {
     scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
   }
 }

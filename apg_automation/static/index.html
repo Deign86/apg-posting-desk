@@ -3,9 +3,20 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#15241f" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css" />
+    <style>
+      :root {
+        --font-body: 'Poppins', system-ui, sans-serif;
+        --font-display: 'Orbitron', sans-serif;
+        --font-mono: 'IBM Plex Mono', monospace;
+      }
+    </style>
     <title>APG Posting Desk</title>
   </head>
   <body>
@@ -27,7 +38,7 @@
               id="propertyName"
               name="propertyName"
               autocomplete="off"
-              placeholder="Novaliches, 440 Bagbag"
+              placeholder="Enter property name"
               required
             />
             <button type="submit">Generate</button>

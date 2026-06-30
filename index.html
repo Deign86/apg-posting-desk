@@ -1,9 +1,10 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#01696f" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <meta
       name="description"
       content="APG Posting Console for intake, Drive validation, caption preparation, manual Facebook publishing, and tracker sync."
@@ -12,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
     <title>APG Posting Console</title>
@@ -28,7 +29,8 @@
           </svg>
           <div>
             <h1>APG Posting Console</h1>
-            <div class="mono" id="connectionStatus">pseudo-functional prototype</div>
+            <div class="mono" id="connectionStatus" role="status" aria-live="polite" aria-busy="false">pseudo-functional prototype</div>
+            <span id="loadingSpinner" class="loading-spinner hidden" aria-hidden="true"></span>
           </div>
         </div>
 
@@ -40,7 +42,7 @@
             </div>
             <span id="roleBadge" class="badge">user</span>
           </div>
-          <p id="userLabel" class="helper" style="margin-top:.5rem;">Demo mode: Ma'am Jean queue visibility enabled.</p>
+          <p id="userLabel" class="helper" style="margin-top:.5rem;">Not signed in.</p>
           <div class="toolbar" style="margin-top:.75rem;">
             <button id="signInButton" class="mini-btn" type="button">Sign in</button>
             <button id="signOutButton" class="mini-btn" type="button" hidden>Sign out</button>
@@ -66,6 +68,10 @@
       </aside>
 
       <main class="content">
+        <div id="errorBanner" class="error-banner" role="alert" hidden>
+          <span class="error-banner-text"></span>
+          <button id="errorBannerDismiss" class="error-banner-dismiss" type="button" aria-label="Dismiss error">Dismiss</button>
+        </div>
         <section class="topbar">
           <div>
             <h2 id="pageTitle">Property job workspace</h2>
@@ -73,7 +79,6 @@
           </div>
           <div class="actions">
             <button class="btn" id="newJobBtn" type="button">New intake</button>
-            <button class="btn btn-primary" id="simulatePipelineBtn" type="button">Run pipeline</button>
           </div>
         </section>
 
@@ -113,14 +118,12 @@
                   </div>
                 </div>
                 <div class="field">
-                  <label for="driveUrl">Drive folder URL</label>
-                  <input class="input" id="driveUrl" inputmode="url" />
+                  <label for="driveUrl">APG Listings Folder <span class="faint" style="font-size:var(--text-xs); font-weight:400;">— system-managed, not editable</span></label>
+                  <input class="input" id="driveUrl" value="https://drive.google.com/drive/folders/1GXeGULYswb7jXcMGCCRm2RQ_h0EKsDll" readonly aria-readonly="true" />
                 </div>
                 <div class="toolbar">
                   <button class="mini-btn" id="validateAssetsBtn" type="button">Validate assets</button>
                   <button class="mini-btn" id="processNext" type="button">Process next property</button>
-                  <button class="mini-btn" id="seedGoodDataBtn" type="button">Load clean sample</button>
-                  <button class="mini-btn" id="seedBadDataBtn" type="button">Load broken sample</button>
                 </div>
                 <div class="steps" id="validationSteps"></div>
               </div>
@@ -137,9 +140,9 @@
               <div class="panel-body">
                 <h4>Source Caption Document</h4>
                 <p id="sourceDocName" class="helper">Source caption document: No document loaded</p>
-                <pre id="captionSourceOutput" class="source-output">Fetch a property to review the extracted DOCX details here.</pre>
+                <pre id="captionSourceOutput" class="source-output">No property selected.</pre>
                 <div class="thumbs" id="thumbs"></div>
-                <div class="helper" id="assetSummary">No asset package loaded yet.</div>
+                <div class="helper" id="assetSummary">No assets loaded.</div>
                 <a id="zipDownload" class="btn" href="#" aria-disabled="true">Download All Images</a>
               </div>
             </article>
@@ -172,7 +175,7 @@
                   <label for="finalCaption">Final caption</label>
                   <textarea class="textarea" id="finalCaption"></textarea>
                 </div>
-                <div class="helper" id="captionRuleResult">No caption check run yet.</div>
+                <div class="helper" id="captionRuleResult">No caption check run.</div>
                 <div class="caption-variants" id="captionVariants"></div>
               </div>
             </article>
@@ -243,7 +246,7 @@
                   <button class="mini-btn" id="openFacebookBtn" type="button">Open Facebook</button>
                   <button class="mini-btn btn-primary" id="logPostButton" type="button" disabled>Click to Log Post</button>
                 </div>
-                <div class="helper" id="publishHelper">Waiting for approval and manual publish.</div>
+                <div class="helper" id="publishHelper">Select a job to begin.</div>
               </div>
             </article>
 
@@ -290,6 +293,15 @@
     </div>
 
     <div class="toast" id="toast"></div>
+
+    <dialog id="confirmDialog" aria-labelledby="confirmDialogTitle">
+      <h3 id="confirmDialogTitle">Confirm Log Post</h3>
+      <p id="confirmDialogText"></p>
+      <div class="dialog-actions">
+        <button id="cancelLogBtn" class="mini-btn" type="button" value="cancel">Cancel</button>
+        <button id="confirmLogBtn" class="mini-btn btn-primary" type="button" value="confirm">Confirm Log</button>
+      </div>
+    </dialog>
 
     <script type="module" src="/src/main.js"></script>
   </body>

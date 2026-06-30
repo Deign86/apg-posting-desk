@@ -57,40 +57,43 @@ activity log, and theme toggle.
 
 Typography:
 
-- Body/UI: Instrument Sans.
+- Body/UI: Poppins.
+- Display/headings: Orbitron.
 - Data, ids, counts, timestamps: IBM Plex Mono.
 - Base body size: 16px minimum.
 - Letter spacing: 0.
 
 Light theme:
 
-- Background: `#f7f6f2`.
-- Surface: `#fbfaf7`.
+- Background: `#f5f3ef`.
+- Surface: `#ffffff`.
 - Raised/subtle surface: `#f0ede7`.
-- Text: `#28251d`.
-- Muted text: `#6f6c66`.
-- Border: `rgba(40, 37, 29, 0.12)`.
-- Primary teal: `#01696f`.
-- Primary hover: `#0c4e54`.
-- Primary soft: `#dbeaea`.
+- Text: `#2c2c2c`.
+- Muted text: `#6a6a6a`.
+- Border: `rgba(197, 160, 89, 0.25)`.
+- Primary gold: `#b2912f`.
+- Primary hover: `#c5a059`.
+- Primary soft: `rgba(197, 160, 89, 0.1)`.
+- Accent-2: `#e2c285`.
 
 Dark theme:
 
-- Background: `#171614`.
-- Surface: `#1d1c19`.
-- Raised/subtle surface: `#252320`.
-- Text: `#e8e3dc`.
-- Muted text: `#aba59a`.
-- Border: `rgba(255, 255, 255, 0.11)`.
-- Primary teal: `#58a9b2`.
-- Primary hover: `#7ec1c9`.
-- Primary soft: `#223539`.
+- Background: `#0a0a0a`.
+- Surface: `#141414`.
+- Raised/subtle surface: `#1a1a1a`.
+- Text: `#e0e0e0`.
+- Muted text: `#9a9489`.
+- Border: `rgba(197, 160, 89, 0.2)`.
+- Primary gold: `#c5a059`.
+- Primary hover: `#d4af37`.
+- Primary soft: `rgba(197, 160, 89, 0.12)`.
+- Accent-2: `#e2c285`.
 
 Status colors:
 
 - Success/ready: light `#386f20`, dark `#7ab15f`.
-- Warning/review: light `#a45a1f`, dark `#cf8a4c`.
-- Error/blocked: light `#9b3158`, dark `#d06d97`.
+- Warning/review: light `#a45a1f`, dark `#e2c285`.
+- Error/blocked: light `#b5443e`, dark `#d4675e`.
 
 Shape and spacing:
 
@@ -98,7 +101,14 @@ Shape and spacing:
 - Panel radius: 16px maximum.
 - Repeated job cards/photo cards: 8px to 16px depending density.
 - Inputs/buttons: minimum 44px height.
-- Focus ring: 2px teal outline with 2px offset.
+- Focus ring: 2px gold outline with 2px offset.
+
+Materiality:
+
+- Panels use `backdrop-filter: blur(10px)` for glassmorphism.
+- Shadows are tinted to the gold accent hue (`--shadow-gold`).
+- Golden scrollbar: gold thumb on dark/surface track.
+- Transitions: `all 0.3s cubic-bezier(0.25, 1, 0.5, 1)`.
 
 ## Layout
 
@@ -123,6 +133,22 @@ Shape and spacing:
 - Tracker preview: read-only or editable textareas for row/report output.
 - Activity item: timestamp and concise event text.
 
+## UX Patterns
+
+- Loading spinner: shown when API operations are in-flight (pipeline runs,
+  caption generation, validation). Uses a gold circular spinner with
+  `@keyframes` rotation. Respects `prefers-reduced-motion` by disabling
+  animation.
+- Error banner: persistent dismissible banner at the top of the workspace for
+  failed API calls. Uses `role="alert"` and a dismiss button. Not a transient
+  toast — stays visible until the operator dismisses it.
+- Empty state: shown in the job list when no jobs are assigned. Displays a
+  centered prompt with an icon, "No jobs assigned" title, and a hint to click
+  "New intake" or "Process next" to begin.
+- Confirmation dialog: native `<dialog>` element shown before the irreversible
+  "Log Post" action. Displays the property name and Facebook URL, with Confirm
+  and Cancel buttons. Uses `showModal()` / `close()`.
+
 ## Accessibility Contracts
 
 - All form fields have visible labels.
@@ -130,6 +156,14 @@ Shape and spacing:
   names.
 - Keyboard focus order follows the visual workflow.
 - Error messages appear near the field or panel they affect.
-- Disabled controls use semantic `disabled` attributes and visible styling.
+- Disabled controls use semantic `disabled` attributes, `aria-disabled="true"`,
+  and visible styling.
+- Connection status element has `aria-live="polite"` and `role="status"` so
+  screen readers announce state changes.
+- Active job row in the job list has `aria-current="page"`.
+- Workflow steps in the publish guide map `data-state` to
+  `aria-current="step"` when active.
+- Disabled log button has `aria-disabled="true"` alongside the `disabled`
+  attribute.
 - Reduced motion keeps state changes understandable without animation.
 - Touch targets are at least 44px high/wide with at least 8px spacing.
