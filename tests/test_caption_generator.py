@@ -25,6 +25,13 @@ def test_validate_caption_rejects_emojis_and_forbidden_phrases():
     assert "Contains emojis" in violations
 
 
+def test_validate_caption_rejects_negotioables_misspelling():
+    valid, violations = validate_caption("Great condo, negotioables welcome.")
+
+    assert not valid
+    assert "Contains forbidden phrase: 'negotioables'" in violations
+
+
 def test_caption_generator_retries_until_caption_satisfies_rules():
     client = FakeAIClient(
         [

@@ -44,6 +44,7 @@ def test_caption_panel_shows_source_doc_and_generate_button():
     assert "No emojis" in html
     assert "least term" in html
     assert "negotiables" in html
+    assert "negotioables" in source
     assert "workflowState.generatedCaption" in source
     assert "generateCaptionButton.addEventListener" in source
 

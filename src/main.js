@@ -602,7 +602,7 @@ function normalizeVariants(data) {
 
 function validateCaption(caption) {
   const lower = caption.toLowerCase();
-  return !lower.includes("least term") && !lower.includes("negotiables") && !/[\u{1f300}-\u{1faff}]/u.test(caption);
+  return !lower.includes("least term") && !lower.includes("negotiables") && !lower.includes("negotioables") && !/[\u{1f300}-\u{1faff}]/u.test(caption);
 }
 
 function formPayload() {

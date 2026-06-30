@@ -31,7 +31,7 @@ class AIClient(Protocol):
 
 @dataclass(frozen=True)
 class CaptionRules:
-    forbidden_phrases: tuple[str, ...] = ("least term", "negotiables")
+    forbidden_phrases: tuple[str, ...] = ("least term", "negotiables", "negotioables")
     max_length: int = 2000
 
 
