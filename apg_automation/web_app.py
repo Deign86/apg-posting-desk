@@ -39,6 +39,12 @@ class MarkPostedRequest(BaseModel):
     facebook_url: str
 
 
+def _now_time() -> str:
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    return datetime.now(ZoneInfo("Asia/Manila")).strftime("%H:%M")
+
+
 def create_app(
     *,
     drive,
@@ -163,11 +169,83 @@ def create_app(
         user=Depends(user_dependency),
     ) -> dict:
         facebook_url = request.facebook_url.strip()
+        job = jobs.get_job(job_id)
+        property_name = job.property_name if job else job_id
         try:
-            pipeline.log_post(job_id, facebook_url)
+            pipeline.log_post(property_name, facebook_url)
         except Exception as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
         return jobs.mark_posted(job_id, facebook_url)
+
+    @app.post("/api/jobs/{job_id}/validate")
+    def validate_job(job_id: str, user=Depends(user_dependency)) -> dict:
+        job = jobs.get_job(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Job not found")
+        try:
+            queue = pipeline.queue.build_queue([job.property_name])
+            ok = job.property_name not in queue.errors and len(queue.ready) > 0
+            errors = queue.errors.get(job.property_name, "")
+        except Exception:
+            ok = False
+            errors = "Unable to validate Drive folder"
+        jobs.add_activity(job_id, {"at": _now_time(), "text": f"Validation {'passed' if ok else 'failed'}"})
+        return {"ok": ok, "data": {"property_name": job.property_name, "errors": errors}}
+
+    @app.post("/api/jobs/{job_id}/prepare")
+    def prepare_job(job_id: str, user=Depends(user_dependency)) -> dict:
+        job = jobs.get_job(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Job not found")
+        try:
+            prepared = pipeline.prepare(job.property_name.strip())
+        except Exception as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+        preparation_id = uuid.uuid4().hex
+        public_dir = download_root / "_public" / preparation_id
+        public_dir.mkdir(parents=True, exist_ok=True)
+        public_images = []
+        for image in prepared.images:
+            target = public_dir / image.name
+            shutil.copyfile(image, target)
+            public_images.append({
+                "name": image.name,
+                "url": f"/prepared/{preparation_id}/{image.name}",
+                "selected": True,
+            })
+
+        prepared_data = {
+            "property_name": prepared.property_name,
+            "caption": prepared.caption,
+            "caption_document_name": prepared.caption_document_name,
+            "caption_details": prepared.caption_details,
+            "images": public_images,
+            "variants": [prepared.caption],
+            "violations": prepared.violations or [],
+            "requires_manual_review": prepared.requires_manual_review,
+        }
+        jobs.set_prepared(job_id, prepared_data)
+        jobs.add_activity(job_id, {"at": _now_time(), "text": "Pipeline prepared Drive assets and caption."})
+        return prepared_data
+
+    @app.post("/api/jobs/{job_id}/captions")
+    def generate_captions(job_id: str, user=Depends(user_dependency)) -> dict:
+        job = jobs.get_job(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Job not found")
+        details = job.caption_details or job.property_name
+        review = pipeline.caption_generator.generate(details)
+        variants = [review.text]
+        jobs.add_activity(job_id, {"at": _now_time(), "text": "Caption variants generated with APG rules."})
+        return {"variants": variants}
+
+    @app.get("/api/jobs/{job_id}/activity")
+    def job_activity(job_id: str, user=Depends(user_dependency)) -> dict:
+        job = jobs.get_job(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Job not found")
+        return {"activity": jobs.get_activity(job_id)}
 
     @app.post("/api/queue/next")
     def next_property(user=Depends(user_dependency)) -> dict:

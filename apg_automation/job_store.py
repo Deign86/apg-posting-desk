@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 
 
@@ -15,6 +15,14 @@ class OperationalJob:
     status: str
     created_on: date
     facebook_url: str = ""
+    caption: str = ""
+    caption_details: str = ""
+    caption_document_name: str = ""
+    images: list = field(default_factory=list)
+    variants: list = field(default_factory=list)
+    violations: list = field(default_factory=list)
+    requires_manual_review: bool = False
+    activity: list = field(default_factory=list)
 
     def to_response(self) -> dict[str, str]:
         payload = {
@@ -28,6 +36,20 @@ class OperationalJob:
         }
         if self.facebook_url:
             payload["facebook_url"] = self.facebook_url
+        if self.caption:
+            payload["caption"] = self.caption
+        if self.caption_details:
+            payload["caption_details"] = self.caption_details
+        if self.caption_document_name:
+            payload["caption_document_name"] = self.caption_document_name
+        if self.images:
+            payload["images"] = self.images
+        if self.variants:
+            payload["variants"] = self.variants
+        if self.violations:
+            payload["violations"] = self.violations
+        if self.requires_manual_review:
+            payload["requires_manual_review"] = self.requires_manual_review
         return payload
 
 
@@ -98,3 +120,38 @@ class InMemoryJobStore:
         job.status = "posted"
         job.facebook_url = facebook_url
         return job.to_response()
+
+    def get_job(self, job_id: str) -> OperationalJob | None:
+        return self._jobs.get(job_id)
+
+    def update_status(self, job_id: str, status: str) -> dict[str, str]:
+        job = self._jobs.get(job_id)
+        if job is None:
+            raise KeyError(job_id)
+        job.status = status
+        return job.to_response()
+
+    def set_prepared(self, job_id: str, prepared_data: dict) -> dict[str, str]:
+        job = self._jobs.get(job_id)
+        if job is None:
+            raise KeyError(job_id)
+        job.caption = prepared_data.get("caption", "")
+        job.caption_details = prepared_data.get("caption_details", "")
+        job.caption_document_name = prepared_data.get("caption_document_name", "")
+        job.images = prepared_data.get("images", [])
+        job.variants = prepared_data.get("variants", [])
+        job.violations = prepared_data.get("violations", [])
+        job.requires_manual_review = prepared_data.get("requires_manual_review", False)
+        return job.to_response()
+
+    def add_activity(self, job_id: str, entry: dict) -> None:
+        job = self._jobs.get(job_id)
+        if job is None:
+            raise KeyError(job_id)
+        job.activity.append(entry)
+
+    def get_activity(self, job_id: str) -> list[dict]:
+        job = self._jobs.get(job_id)
+        if job is None:
+            return []
+        return list(job.activity)

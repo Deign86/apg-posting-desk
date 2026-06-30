@@ -159,3 +159,131 @@ def test_mark_posted_route_requires_manual_publish_contract(tmp_path):
 
     assert response.status_code == 200
     assert response.json()["status"] == "posted"
+
+
+def test_get_job_returns_job_by_id(tmp_path):
+    from apg_automation.job_store import InMemoryJobStore
+    store = InMemoryJobStore()
+    created = store.create(property_name="Test", assigned_by="A", operator="B", due_date="2026-07-01", drive_url="x")
+    job = store.get_job(created["id"])
+    assert job is not None
+    assert job.property_name == "Test"
+
+
+def test_get_job_returns_none_for_missing_id():
+    from apg_automation.job_store import InMemoryJobStore
+    store = InMemoryJobStore()
+    assert store.get_job("NONEXIST") is None
+
+
+def test_update_status_changes_job_status():
+    from apg_automation.job_store import InMemoryJobStore
+    store = InMemoryJobStore()
+    created = store.create(property_name="T", assigned_by="A", operator="B", due_date="2026-07-01", drive_url="x")
+    updated = store.update_status(created["id"], "waiting_approval")
+    assert updated["status"] == "waiting_approval"
+
+
+def test_add_activity_and_get_activity():
+    from apg_automation.job_store import InMemoryJobStore
+    store = InMemoryJobStore()
+    created = store.create(property_name="T", assigned_by="A", operator="B", due_date="2026-07-01", drive_url="x")
+    store.add_activity(created["id"], {"at": "10:30", "text": "Job created"})
+    store.add_activity(created["id"], {"at": "10:35", "text": "Validated"})
+    activity = store.get_activity(created["id"])
+    assert len(activity) == 2
+    assert activity[0]["text"] == "Job created"
+
+
+def test_set_prepared_stores_caption_data():
+    from apg_automation.job_store import InMemoryJobStore
+    store = InMemoryJobStore()
+    created = store.create(property_name="T", assigned_by="A", operator="B", due_date="2026-07-01", drive_url="x")
+    store.set_prepared(created["id"], {"caption": "Clean caption.", "images": [{"name": "1.jpg", "url": "/x/1.jpg"}]})
+    job = store.get_job(created["id"])
+    assert job.caption == "Clean caption."
+
+
+def test_validate_route_returns_ok_for_valid_job(tmp_path):
+    client, _ = build_client(tmp_path)
+    create = client.post("/api/jobs", json={
+        "property_name": "Sample Property",
+        "assigned_by": "Ma'am Jean",
+        "operator": "Deign",
+        "due_date": "2026-06-30",
+        "drive_url": "https://drive.google.com/demo",
+    })
+    job_id = create.json()["id"]
+    resp = client.post(f"/api/jobs/{job_id}/validate")
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True
+
+
+def test_validate_route_returns_404_for_missing_job(tmp_path):
+    client, _ = build_client(tmp_path)
+    resp = client.post("/api/jobs/NONEXIST/validate")
+    assert resp.status_code == 404
+
+
+def test_prepare_route_returns_prepared_data(tmp_path):
+    client, _ = build_client(tmp_path)
+    create = client.post("/api/jobs", json={
+        "property_name": "Sample Property",
+        "assigned_by": "Ma'am Jean",
+        "operator": "Deign",
+        "due_date": "2026-06-30",
+        "drive_url": "https://drive.google.com/demo",
+    })
+    job_id = create.json()["id"]
+    resp = client.post(f"/api/jobs/{job_id}/prepare")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "caption" in data
+    assert "images" in data
+    assert len(data["images"]) == 3
+
+
+def test_prepare_route_returns_404_for_missing_job(tmp_path):
+    client, _ = build_client(tmp_path)
+    resp = client.post("/api/jobs/NONEXIST/prepare")
+    assert resp.status_code == 404
+
+
+def test_captions_route_returns_variants(tmp_path):
+    client, _ = build_client(tmp_path)
+    create = client.post("/api/jobs", json={
+        "property_name": "Sample Property",
+        "assigned_by": "Ma'am Jean",
+        "operator": "Deign",
+        "due_date": "2026-06-30",
+        "drive_url": "https://drive.google.com/demo",
+    })
+    job_id = create.json()["id"]
+    resp = client.post(f"/api/jobs/{job_id}/captions")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "variants" in data
+    assert isinstance(data["variants"], list)
+    assert len(data["variants"]) >= 1
+
+
+def test_activity_route_returns_activity_list(tmp_path):
+    client, _ = build_client(tmp_path)
+    create = client.post("/api/jobs", json={
+        "property_name": "Sample Property",
+        "assigned_by": "Ma'am Jean",
+        "operator": "Deign",
+        "due_date": "2026-06-30",
+        "drive_url": "https://drive.google.com/demo",
+    })
+    job_id = create.json()["id"]
+    resp = client.get(f"/api/jobs/{job_id}/activity")
+    assert resp.status_code == 200
+    assert "activity" in resp.json()
+    assert isinstance(resp.json()["activity"], list)
+
+
+def test_activity_route_returns_404_for_missing_job(tmp_path):
+    client, _ = build_client(tmp_path)
+    resp = client.get("/api/jobs/NONEXIST/activity")
+    assert resp.status_code == 404
