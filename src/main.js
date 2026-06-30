@@ -1,4 +1,3 @@
-// allow: SIZE_OK - Todo 3 scope permits only the existing Vite entry file for the prototype console.
 import "./styles.css";
 import { initializeApp } from "firebase/app";
 import {
@@ -10,63 +9,7 @@ import {
 } from "firebase/auth";
 
 const doc = document;
-const qs = (selector) => doc.querySelector(selector);
-
-const elements = {
-  activityCount: qs("#activityCount"),
-  activityLog: qs("#activityLog"),
-  assignedBy: qs("#assignedBy"),
-  captionGuidance: qs("#captionGuidance"),
-  captionOutput: qs("#captionOutput"),
-  captionSourceOutput: qs("#captionSourceOutput"),
-  captionVariants: qs("#captionVariants"),
-  checkCaption: qs("#checkCaption"),
-  checkManualPost: qs("#checkManualPost"),
-  checkPhotos: qs("#checkPhotos"),
-  connectionStatus: qs("#connectionStatus"),
-  copyCaption: qs("#copyCaption"),
-  countAssigned: qs("#countAssigned"),
-  countPosted: qs("#countPosted"),
-  countReady: qs("#countReady"),
-  countWaiting: qs("#countWaiting"),
-  dailyReport: qs("#dailyReport"),
-  driveUrl: qs("#driveUrl"),
-  dueDate: qs("#dueDate"),
-  facebookInput: qs("#facebookUrl"),
-  facebookUrlGroup: qs("#facebookUrlGroup"),
-  generateCaptionButton: qs("#generateCaption"),
-  imageGallery: qs("#imageGallery"),
-  imageTemplate: qs("#imageTemplate"),
-  jobList: qs("#jobList"),
-  jobTemplate: qs("#jobTemplate"),
-  logButton: qs("#logPostButton"),
-  logForm: qs("#logForm"),
-  metricCaption: qs("#metricCaption"),
-  metricPhotos: qs("#metricPhotos"),
-  metricRole: qs("#metricRole"),
-  metricValidation: qs("#metricValidation"),
-  newIntake: qs("#newIntake"),
-  openFacebook: qs("#openFacebook"),
-  operatorName: qs("#operatorName"),
-  prepareForm: qs("#prepareForm"),
-  processNextButton: qs("#processNext"),
-  propertyInput: qs("#propertyName"),
-  refreshJobs: qs("#refreshJobs"),
-  roleBadge: qs("#roleBadge"),
-  runPipeline: qs("#runPipeline"),
-  selectedPhotoBadge: qs("#selectedPhotoBadge"),
-  selectedPropertyMeta: qs("#selectedPropertyMeta"),
-  selectedPropertyTitle: qs("#selectedPropertyTitle"),
-  signInButton: qs("#signInButton"),
-  signOutButton: qs("#signOutButton"),
-  sourceDocName: qs("#sourceDocName"),
-  themeToggle: qs("#themeToggle"),
-  trackerRow: qs("#trackerRow"),
-  userLabel: qs("#userLabel"),
-  validationResults: qs("#validationResults"),
-  validationState: qs("#validationState"),
-  zipDownload: qs("#zipDownload"),
-};
+const el = (id) => doc.getElementById(id);
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -83,29 +26,39 @@ if (shouldRestrictDomain) {
   provider.setCustomParameters({ hd: hostedDomain });
 }
 
+let currentUser = null;
+let session = {
+  firebase_project_id: firebaseConfig.projectId || "demo",
+  user: { uid: "demo-maam-jean", email: "demo@apg.local", role: "maam_jean", display_name: "Ma'am Jean" },
+};
+
 const demoJobs = [
   {
     id: "APG-2401",
-    property_name: "Novaliches, 440 Bagbag",
-    assigned_by: "Ma'am Jean",
+    propertyName: "Novaliches, 440 Bagbag",
+    assignedBy: "Ma'am Jean",
     operator: "Deign",
-    due_date: "2026-06-30",
-    status: "ready_to_post",
-    drive_url: "https://drive.google.com/demo/bagbag",
-    caption_document_name: "Bagbag-caption.docx",
-    caption_details: "Townhouse for sale in Novaliches with clean title, near transport, schools, and daily essentials.",
-    caption: "Novaliches, 440 Bagbag is ready for viewing. This property offers practical access to transport, schools, and daily essentials. Message APG for details and schedule coordination.",
+    dueDate: "2026-06-30",
+    driveUrl: "https://drive.google.com/demo/bagbag",
+    imageCount: 4,
+    hasCaptionDoc: true,
+    docName: "Bagbag-caption.docx",
+    status: "ready-to-post",
+    trackerStatus: "pending",
+    details: "Townhouse for sale in Novaliches with clean title, near transport, schools, and daily essentials.",
     images: [
-      { name: "front-view.jpg", url: "/icon-192.png", selected: true },
-      { name: "living-area.jpg", url: "/icon-192.png", selected: true },
-      { name: "kitchen.jpg", url: "/icon-192.png", selected: true },
-      { name: "street-access.jpg", url: "/icon-192.png", selected: false },
+      { id: "img1", label: "front-view.jpg", selected: true },
+      { id: "img2", label: "living-area.jpg", selected: true },
+      { id: "img3", label: "kitchen.jpg", selected: true },
+      { id: "img4", label: "street-access.jpg", selected: false },
     ],
     variants: [
       "Ready for posting: Novaliches, 440 Bagbag with practical access to transport, schools, and essentials. Message APG for viewing details.",
       "APG listing prepared for Novaliches, 440 Bagbag. Review the photos, confirm details, and coordinate viewing through the assigned operator.",
       "For Facebook posting: Novaliches, 440 Bagbag. Clean property details, selected photos, and tracker preview are ready for manual publishing.",
     ],
+    finalCaption: "Novaliches, 440 Bagbag is ready for viewing. This property offers practical access to transport, schools, and daily essentials. Message APG for details and schedule coordination.",
+    facebookLink: "",
     activity: [
       { at: "09:18", text: "Ma'am Jean assigned APG-2401 to Deign." },
       { at: "09:24", text: "Drive validation passed with 4 images and 1 caption doc." },
@@ -114,33 +67,79 @@ const demoJobs = [
   },
   {
     id: "APG-2402",
-    property_name: "Fairview, Dahlia Avenue",
-    assigned_by: "Admin",
+    propertyName: "Fairview, Dahlia Avenue",
+    assignedBy: "Admin",
     operator: "Rhea",
-    due_date: "2026-06-30",
-    status: "waiting_approval",
-    drive_url: "https://drive.google.com/demo/fairview",
-    caption_document_name: "Fairview-caption.docx",
-    caption_details: "Condo unit near Commonwealth corridor. Needs price confirmation before posting.",
-    caption: "Fairview, Dahlia Avenue is queued for caption approval and final asset review.",
+    dueDate: "2026-06-30",
+    driveUrl: "https://drive.google.com/demo/fairview",
+    imageCount: 2,
+    hasCaptionDoc: true,
+    docName: "Fairview-caption.docx",
+    status: "missing-assets",
+    trackerStatus: "blocked",
+    details: "Condo unit near Commonwealth corridor. Needs price confirmation before posting.",
     images: [
-      { name: "unit-main.jpg", url: "/icon-192.png", selected: true },
-      { name: "amenity.jpg", url: "/icon-192.png", selected: false },
+      { id: "img1", label: "unit-main.jpg", selected: true },
+      { id: "img2", label: "amenity.jpg", selected: false },
     ],
     variants: [],
+    finalCaption: "",
+    facebookLink: "",
     activity: [{ at: "10:05", text: "Validation flagged missing third selected photo." }],
   },
 ];
 
-let currentUser = null;
-let selectedJobId = "APG-2401";
 let jobs = [...demoJobs];
-let session = {
-  firebase_project_id: firebaseConfig.projectId || "demo",
-  user: { uid: "demo-maam-jean", email: "demo@apg.local", role: "maam_jean", display_name: "Ma'am Jean" },
+let activeJobId = jobs[0].id;
+
+const refs = {
+  jobList: el("jobList"),
+  propertyName: el("propertyName"),
+  assignedBy: el("assignedBy"),
+  operatorName: el("operatorName"),
+  dueDate: el("dueDate"),
+  driveUrl: el("driveUrl"),
+  validationSteps: el("validationSteps"),
+  thumbs: el("thumbs"),
+  captionDetails: el("captionDetails"),
+  finalCaption: el("finalCaption"),
+  captionVariants: el("captionVariants"),
+  imageCounterBadge: el("imageCounterBadge"),
+  assetSummary: el("assetSummary"),
+  captionRuleResult: el("captionRuleResult"),
+  folderStatusBadge: el("folderStatusBadge"),
+  metricProperty: el("metricProperty"),
+  metricAgent: el("metricAgent"),
+  metricAssets: el("metricAssets"),
+  metricDoc: el("metricDoc"),
+  metricStatus: el("metricStatus"),
+  metricTracker: el("metricTracker"),
+  publishHelper: el("publishHelper"),
+  facebookLink: el("facebookLink"),
+  trackerPreview: el("trackerPreview"),
+  dailyReportPreview: el("dailyReportPreview"),
+  trackerStatus: el("trackerStatus"),
+  activityLog: el("activityLog"),
+  toast: el("toast"),
+  checkCaptionApproved: el("checkCaptionApproved"),
+  checkPhotosSelected: el("checkPhotosSelected"),
+  checkPostedToFacebook: el("checkPostedToFacebook"),
+  assignedCount: el("assignedCount"),
+  approvalCount: el("approvalCount"),
+  readyCount: el("readyCount"),
+  postedCount: el("postedCount"),
+  sourceDocName: el("sourceDocName"),
+  captionSourceOutput: el("captionSourceOutput"),
+  zipDownload: el("zipDownload"),
+  connectionStatus: el("connectionStatus"),
+  roleBadge: el("roleBadge"),
+  userLabel: el("userLabel"),
+  signInButton: el("signInButton"),
+  signOutButton: el("signOutButton"),
+  sessionTitle: el("sessionTitle"),
+  facebookUrlGroup: el("facebookUrlGroup"),
+  logButton: el("logPostButton"),
 };
-let activeCaption = demoJobs[0].caption;
-let activeProperty = demoJobs[0].property_name;
 
 const workflowState = {
   prepared: true,
@@ -156,201 +155,357 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/service-worker.js");
 }
 
-if (auth) {
-  onAuthStateChanged(auth, async (user) => {
-    currentUser = user;
-    elements.signInButton.hidden = Boolean(user);
-    elements.signOutButton.hidden = !user;
-    await loadSession();
-    await loadJobs();
-  });
-} else {
-  elements.userLabel.textContent = "Demo mode: Firebase config not loaded. Ma'am Jean workflow is available.";
+function activeJob() {
+  return jobs.find((j) => j.id === activeJobId) || jobs[0];
 }
 
-elements.signInButton.addEventListener("click", async () => {
-  if (!auth) {
-    setStatus("Firebase config missing; staying in demo mode");
-    return;
-  }
-  await signInWithPopup(auth, provider);
-});
-
-elements.signOutButton.addEventListener("click", async () => {
-  if (auth) {
-    await signOut(auth);
-  }
-});
-
-elements.themeToggle.addEventListener("click", () => {
-  const nextTheme = doc.documentElement.dataset.theme === "dark" ? "light" : "dark";
-  doc.documentElement.dataset.theme = nextTheme;
-  localStorage.setItem("apg-theme", nextTheme);
-});
-
-elements.refreshJobs.addEventListener("click", loadJobs);
-elements.newIntake.addEventListener("click", startNewIntake);
-elements.runPipeline.addEventListener("click", () => prepareSelectedJob("button"));
-elements.processNextButton.addEventListener("click", async () => {
-  const response = await requestJson("/api/queue/next", { method: "POST" });
-  if (response.ok && response.data.property_name) {
-    elements.propertyInput.value = response.data.property_name;
-    await prepareSelectedJob("queue");
-    return;
-  }
-  setStatus("Demo fallback loaded next property");
-  selectJob(jobs[0].id);
-});
-
-elements.prepareForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  await createOrPrepareJob();
-});
-
-elements.generateCaptionButton.addEventListener("click", async () => {
-  const job = selectedJob();
-  const jobId = job.id;
-  const response = await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/captions`, { method: "POST" }));
-  const variants = response.ok ? normalizeVariants(response.data) : job.variants;
-  job.variants = variants.length > 0 ? variants : demoJobs[0].variants;
-  workflowState.generatedCaption = true;
-  renderCaption(job);
-  updateWorkflowGuide();
-  addActivity("Caption variants generated with APG rules.");
-  setStatus(response.ok ? "Caption variants ready" : "Demo caption variants ready");
-});
-
-elements.copyCaption.addEventListener("click", async () => {
-  if (!workflowState.generatedCaption) {
-    setStatus("Generate the caption first");
-    return;
-  }
-  await navigator.clipboard.writeText(activeCaption);
-  workflowState.copiedCaption = true;
-  elements.checkCaption.checked = true;
-  updateWorkflowGuide();
-  setStatus("Caption copied");
-});
-
-elements.openFacebook.addEventListener("click", (event) => {
-  if (!workflowState.copiedCaption) {
-    event.preventDefault();
-    setStatus("Copy the caption before opening Facebook");
-    return;
-  }
-  workflowState.openedFacebook = true;
-  elements.checkManualPost.checked = true;
-  updateWorkflowGuide();
-});
-
-elements.zipDownload.addEventListener("click", (event) => {
-  if (elements.zipDownload.getAttribute("aria-disabled") === "true") {
-    event.preventDefault();
-  }
-  workflowState.downloadedAssets = true;
-  updateWorkflowGuide();
-});
-
-elements.facebookInput.addEventListener("input", () => {
-  workflowState.enteredFacebookUrl = elements.facebookInput.value.trim().length > 0;
-  updateWorkflowGuide();
-});
-
-for (const checkbox of [elements.checkCaption, elements.checkPhotos, elements.checkManualPost]) {
-  checkbox.addEventListener("change", updateWorkflowGuide);
+function log(message) {
+  const item = doc.createElement("div");
+  item.className = "log-item";
+  item.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + " — " + message;
+  refs.activityLog.prepend(item);
 }
 
-elements.logForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const facebookUrl = elements.facebookInput.value.trim();
-  if (!facebookUrl) {
-    setStatus("Paste the live Facebook URL first");
-    return;
-  }
-  const job = selectedJob();
-  const jobId = job.id;
-  const response = await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/mark-posted`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ facebook_url: facebookUrl }),
-  }));
-  await authFetch("/api/log", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ property_name: activeProperty, facebook_url: facebookUrl }),
-  });
-  job.status = "posted_today";
-  workflowState.loggedPost = true;
-  addActivity(response.ok ? "Facebook URL logged to tracker." : "Demo tracker sync completed.");
-  renderAll();
-  setStatus(response.ok ? "Logged" : "Demo logged");
-});
+function toast(message) {
+  refs.toast.textContent = message;
+  refs.toast.classList.add("show");
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => refs.toast.classList.remove("show"), 2200);
+}
 
-doc.querySelectorAll(".queue-button").forEach((button) => {
-  button.addEventListener("click", () => {
-    doc.querySelectorAll(".queue-button").forEach((item) => item.classList.remove("active"));
-    button.classList.add("active");
-    renderJobList(button.dataset.queue);
-  });
-});
-
-async function loadSession() {
-  const response = await jsonFromResponse(await authFetch("/api/session"));
-  if (response.ok && response.data.user) {
-    session = response.data;
+async function copyText(text, message) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(message);
+  } catch {
+    toast("Clipboard unavailable in this environment.");
   }
+}
+
+function statusBadge(status) {
+  const map = {
+    "missing-assets": ["Missing assets", "err"],
+    "ready-for-review": ["Ready for review", "warn"],
+    "ready-to-post": ["Ready to post", "ready"],
+    "posted": ["Posted", "ready"],
+    "posted_today": ["Posted today", "ready"],
+    "waiting_approval": ["Waiting approval", "warn"],
+  };
+  return map[status] || [status.replaceAll("-", " ").replaceAll("_", " "), ""];
+}
+
+function normalizeJob(raw) {
+  const images = Array.isArray(raw.images)
+    ? raw.images.map((img, idx) => ({
+        id: img.id || `img${idx + 1}`,
+        label: img.name || img.label || `Photo ${idx + 1}`,
+        selected: Boolean(img.selected),
+        url: img.url || "/icon-192.png",
+      }))
+    : [];
+  return {
+    id: raw.id || raw.property_id || "unknown",
+    propertyName: raw.property_name || raw.propertyName || "Unnamed property",
+    assignedBy: raw.assigned_by || raw.assignedBy || "Ma'am Jean",
+    operator: raw.operator || "Unassigned",
+    dueDate: raw.due_date || raw.dueDate || new Date().toISOString().slice(0, 10),
+    driveUrl: raw.drive_url || raw.driveUrl || "",
+    imageCount: raw.image_count ?? raw.imageCount ?? images.length,
+    hasCaptionDoc: Boolean(raw.caption_document_name || raw.hasCaptionDoc || raw.caption_details || raw.details),
+    docName: raw.caption_document_name || raw.docName || "",
+    status: (raw.status || "missing-assets").replaceAll("_", "-"),
+    trackerStatus: raw.tracker_status || raw.trackerStatus || "pending",
+    details: raw.caption_details || raw.details || "",
+    images,
+    variants: normalizeVariants(raw),
+    finalCaption: raw.caption || raw.finalCaption || "",
+    facebookLink: raw.facebook_url || raw.facebookLink || "",
+    activity: Array.isArray(raw.activity) ? raw.activity : [],
+  };
+}
+
+function normalizeVariants(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data.variants)) return data.variants;
+  if (Array.isArray(data.captions)) return data.captions;
+  return [];
+}
+
+function renderJobList() {
+  refs.jobList.innerHTML = "";
+  jobs.forEach((job) => {
+    const [label, cls] = statusBadge(job.status);
+    const btn = doc.createElement("button");
+    btn.className = "job-row" + (job.id === activeJobId ? " active" : "");
+    btn.type = "button";
+    btn.innerHTML = `
+      <div class="row-top"><strong>${job.propertyName}</strong><span class="badge ${cls}">${label}</span></div>
+      <div class="muted">${job.id}</div>
+      <div class="inline faint mono"><span>${job.assignedBy}</span><span>${job.dueDate}</span></div>
+    `;
+    btn.addEventListener("click", () => {
+      activeJobId = job.id;
+      resetWorkflowState();
+      hydrateForm();
+      renderAll();
+      loadActivity(job.id);
+      log("Switched to " + job.propertyName);
+    });
+    refs.jobList.appendChild(btn);
+  });
+  refs.assignedCount.textContent = jobs.length;
+  refs.approvalCount.textContent = jobs.filter((j) => j.status === "ready-for-review" || j.status === "waiting-approval").length;
+  refs.readyCount.textContent = jobs.filter((j) => j.status === "ready-to-post").length;
+  refs.postedCount.textContent = jobs.filter((j) => j.status === "posted" || j.status === "posted_today").length;
+}
+
+function hydrateForm() {
+  const job = activeJob();
+  refs.propertyName.value = job.propertyName;
+  refs.assignedBy.value = job.assignedBy;
+  refs.operatorName.value = job.operator;
+  refs.dueDate.value = job.dueDate;
+  refs.driveUrl.value = job.driveUrl;
+  refs.captionDetails.value = job.details;
+  refs.finalCaption.value = job.finalCaption || "";
+  refs.facebookLink.value = job.facebookLink || "";
+  refs.checkCaptionApproved.checked = !!job.finalCaption;
+  refs.checkPhotosSelected.checked = job.images.filter((i) => i.selected).length >= 3;
+  refs.checkPostedToFacebook.checked = !!job.facebookLink;
+  refs.sourceDocName.textContent = `Source caption document: ${job.docName || "No document loaded"}`;
+  refs.captionSourceOutput.textContent = job.details || "Fetch a property to review the extracted DOCX details here.";
+  refs.zipDownload.href = `/prepared/${encodeURIComponent(job.propertyName)}.zip`;
+  if (job.images.length > 0) {
+    refs.zipDownload.removeAttribute("aria-disabled");
+  }
+  workflowState.generatedCaption = Boolean(job.finalCaption || job.variants.length);
+}
+
+function syncFormToJob() {
+  const job = activeJob();
+  job.propertyName = refs.propertyName.value.trim();
+  job.assignedBy = refs.assignedBy.value.trim();
+  job.operator = refs.operatorName.value.trim();
+  job.dueDate = refs.dueDate.value;
+  job.driveUrl = refs.driveUrl.value.trim();
+  job.details = refs.captionDetails.value.trim();
+  job.finalCaption = refs.finalCaption.value.trim();
+  job.facebookLink = refs.facebookLink.value.trim();
+}
+
+function renderValidation() {
+  const job = activeJob();
+  const checks = [
+    { label: "Drive folder URL provided", ok: !!job.driveUrl },
+    { label: "At least 3 images found", ok: job.imageCount >= 3 },
+    { label: "Caption details document found", ok: !!job.hasCaptionDoc },
+    { label: "Operator and due date set", ok: !!job.operator && !!job.dueDate },
+  ];
+  refs.validationSteps.innerHTML = "";
+  checks.forEach((check, idx) => {
+    const div = doc.createElement("div");
+    div.className = "step " + (check.ok ? "done" : idx === 0 ? "current" : "");
+    div.innerHTML = `<strong>${check.label}</strong><div class="muted">${check.ok ? "Passed" : "Needs attention"}</div>`;
+    refs.validationSteps.appendChild(div);
+  });
+  const allGood = checks.every((c) => c.ok);
+  refs.folderStatusBadge.className = "badge " + (allGood ? "ready" : "err");
+  refs.folderStatusBadge.textContent = allGood ? "Validation passed" : "Validation blocked";
+}
+
+function renderThumbs() {
+  const job = activeJob();
+  refs.thumbs.innerHTML = "";
+  job.images.forEach((img, index) => {
+    const card = doc.createElement("div");
+    card.className = "thumb" + (img.selected ? " active" : "");
+    card.innerHTML = `
+      <button type="button" data-id="${img.id}">
+        <div class="photo">Photo ${index + 1}</div>
+        <div class="thumb-meta"><strong>${img.label}</strong><span class="muted mono">${img.selected ? "selected" : "not selected"}</span></div>
+      </button>
+    `;
+    card.querySelector("button").addEventListener("click", () => {
+      img.selected = !img.selected;
+      renderThumbs();
+      renderMetrics();
+      updateWorkflowGuide();
+      log((img.selected ? "Selected " : "Deselected ") + img.label);
+    });
+    refs.thumbs.appendChild(card);
+  });
+  const selected = job.images.filter((i) => i.selected).length;
+  refs.imageCounterBadge.textContent = `${selected} selected`;
+  refs.assetSummary.textContent = `${job.imageCount} images detected in folder. ${selected} currently selected for the post package. Caption document: ${job.hasCaptionDoc ? job.docName : "missing"}.`;
+  refs.checkPhotosSelected.checked = selected >= 3;
+}
+
+function buildVariants(details) {
+  const compact = details.replace(/\n+/g, "; ");
+  return [
+    `For lease: ${compact}. For inquiries and viewing schedule, message Alpha Premier Realty.`,
+    `Available property listing from Alpha Premier Realty. ${compact}. Contact us for details and site viewing arrangements.`,
+    `Featured property: ${compact}. Reach out to Alpha Premier Realty for inquiries, availability, and viewing coordination.`,
+  ];
+}
+
+function checkCaptionRules(text) {
+  const issues = [];
+  const lowered = text.toLowerCase();
+  if (/[^\w\s.,:/()\-₱#]/u.test(text)) issues.push("Possible emoji or unsupported symbol detected.");
+  if (lowered.includes("negotiables")) issues.push("Contains banned term: negotiables.");
+  if (lowered.includes("negotioables")) issues.push("Contains banned term: negotioables.");
+  if (lowered.includes("least term")) issues.push("Contains banned term: least term.");
+  return issues;
+}
+
+function renderVariants() {
+  const job = activeJob();
+  refs.captionVariants.innerHTML = "";
+  job.variants.forEach((text, idx) => {
+    const card = doc.createElement("div");
+    card.className = "variant" + (job.finalCaption === text ? " active" : "");
+    card.innerHTML = `
+      <div class="status-line"><strong>Variant ${idx + 1}</strong><span class="badge">candidate</span></div>
+      <div class="variant-text">${text}</div>
+      <div class="toolbar">
+        <button class="mini-btn" data-use="${idx}" type="button">Use this caption</button>
+        <button class="mini-btn" data-copy="${idx}" type="button">Copy</button>
+      </div>
+    `;
+    card.querySelector("[data-use]").addEventListener("click", () => {
+      job.finalCaption = text;
+      refs.finalCaption.value = text;
+      refs.checkCaptionApproved.checked = true;
+      renderVariants();
+      renderMetrics();
+      updateWorkflowGuide();
+      log("Selected caption variant " + (idx + 1));
+      toast("Caption applied.");
+    });
+    card.querySelector("[data-copy]").addEventListener("click", () => copyText(text, "Caption copied."));
+    refs.captionVariants.appendChild(card);
+  });
+}
+
+function renderMetrics() {
+  const job = activeJob();
+  refs.metricProperty.textContent = job.propertyName || "-";
+  refs.metricAgent.textContent = "Assigned by " + (job.assignedBy || "-");
+  refs.metricAssets.textContent = `${job.imageCount} images / ${job.images.filter((i) => i.selected).length} selected`;
+  refs.metricDoc.textContent = job.hasCaptionDoc ? job.docName : "Caption file missing";
+  refs.metricStatus.textContent = job.status.replaceAll("-", " ");
+  refs.metricTracker.textContent = "Tracker sync " + job.trackerStatus;
+  refs.publishHelper.textContent = job.facebookLink ? "Facebook URL captured. Ready to prepare tracker updates." : "Waiting for approval and manual publish.";
+}
+
+function prepareTrackerPreview() {
+  const job = activeJob();
+  const selectedImages = job.images.filter((i) => i.selected).length;
+  refs.trackerPreview.value = [
+    job.id,
+    job.propertyName,
+    job.assignedBy,
+    job.operator,
+    job.dueDate,
+    selectedImages + " selected images",
+    job.facebookLink || "[pending facebook link]",
+    job.status,
+    job.trackerStatus,
+  ].join(" | ");
+
+  refs.dailyReportPreview.value = `Posted property: ${job.propertyName}\nAssigned by: ${job.assignedBy}\nOperator: ${job.operator}\nAsset package: ${selectedImages} selected images; caption doc ${job.hasCaptionDoc ? "present" : "missing"}\nFacebook URL: ${job.facebookLink || "[pending]"}\nStatus: ${job.status}`;
+  refs.trackerStatus.textContent = "Preview prepared. Ready for copy or future API sync.";
+  log("Prepared tracker and daily report preview");
+}
+
+function renderActivity(activity) {
+  refs.activityLog.innerHTML = "";
+  (activity || []).forEach((item) => {
+    const row = doc.createElement("div");
+    row.className = "log-item";
+    row.textContent = `${item.at || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} — ${item.text}`;
+    refs.activityLog.appendChild(row);
+  });
+}
+
+function renderAll() {
   renderSession();
+  renderJobList();
+  hydrateForm();
+  renderValidation();
+  renderThumbs();
+  renderVariants();
+  renderMetrics();
+  prepareTrackerPreview();
+  updateWorkflowGuide();
 }
 
-async function loadJobs() {
-  const response = await jsonFromResponse(await authFetch("/api/jobs"));
-  if (response.ok && Array.isArray(response.data.jobs)) {
-    jobs = response.data.jobs.map((job) => ({ ...demoJobs[0], ...job }));
-  }
-  if (!jobs.some((job) => job.id === selectedJobId)) {
-    selectedJobId = jobs[0].id;
-  }
-  renderAll();
-  setStatus(response.ok ? "Live queue loaded" : "Demo queue loaded");
+function renderSession() {
+  const role = session.user?.role || "user";
+  const name = session.user?.display_name || session.user?.email || "Demo operator";
+  refs.roleBadge.textContent = role;
+  refs.userLabel.textContent = `${name} · ${roleCopy(role)} · ${session.firebase_project_id || "demo"}`;
+  refs.sessionTitle.textContent = "Role access";
 }
 
-async function createOrPrepareJob() {
-  const payload = formPayload();
-  const created = await requestJson("/api/jobs", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (created.ok && created.data.id) {
-    jobs = [created.data, ...jobs];
-    selectedJobId = created.data.id;
-  }
-  await prepareSelectedJob("form");
+function roleCopy(role) {
+  if (role === "admin") return "admin controls";
+  if (role === "maam_jean") return "Ma'am Jean approvals";
+  return "user posting lane";
 }
 
-async function prepareSelectedJob(source) {
-  const job = selectedJob();
-  setStatus("Running pipeline");
-  const jobId = job.id;
-  await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/validate`, { method: "POST" }));
-  const prepared = await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/prepare`, { method: "POST" }));
-  const legacy = await authFetch("/api/prepare", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ property_name: elements.propertyInput.value.trim() || job.property_name }),
-  });
-  if (prepared.ok) {
-    Object.assign(job, prepared.data);
-  } else if (legacy.ok) {
-    Object.assign(job, await legacy.json());
-  }
-  job.status = source === "form" ? "waiting_approval" : "ready_to_post";
-  selectedJobId = job.id;
+function updateWorkflowGuide() {
+  const job = activeJob();
+  const canDownload = workflowState.prepared && job.images.length > 0;
+  const canCopyCaption = workflowState.downloadedAssets && workflowState.generatedCaption;
+  const canOpenFacebook = workflowState.copiedCaption;
+  const canEnterFacebookUrl = workflowState.copiedCaption && workflowState.openedFacebook && refs.checkPostedToFacebook.checked;
+  const canLogPost = canEnterFacebookUrl && workflowState.enteredFacebookUrl && refs.checkCaptionApproved.checked && refs.checkPhotosSelected.checked;
+  refs.facebookUrlGroup.hidden = !canEnterFacebookUrl;
+  refs.logButton.disabled = !canLogPost;
+  setStepState("download", workflowState.downloadedAssets, canDownload);
+  setStepState("copy", workflowState.copiedCaption, canCopyCaption);
+  setStepState("facebook", workflowState.openedFacebook, canOpenFacebook);
+  setStepState("url", workflowState.enteredFacebookUrl, canEnterFacebookUrl);
+  setStepState("log", workflowState.loggedPost, canLogPost);
+}
+
+function setStepState(name, complete, enabled) {
+  const step = doc.querySelector(`.workflow-step[data-step="${name}"]`);
+  if (!step) return;
+  step.dataset.state = complete ? "complete" : enabled ? "active" : "locked";
+  const marker = step.querySelector(".step-marker");
+  marker.textContent = complete ? "Done" : marker.dataset.number;
+}
+
+function resetWorkflowState() {
+  const job = activeJob();
   workflowState.prepared = true;
-  workflowState.generatedCaption = Boolean(job.caption);
-  addActivity("Pipeline prepared Drive assets and caption workspace.");
-  renderAll();
-  setStatus(prepared.ok || legacy.ok ? "Pipeline ready" : "Demo pipeline ready");
+  workflowState.downloadedAssets = false;
+  workflowState.generatedCaption = Boolean(job.finalCaption || job.variants.length);
+  workflowState.copiedCaption = false;
+  workflowState.openedFacebook = false;
+  workflowState.enteredFacebookUrl = false;
+  workflowState.loggedPost = false;
+  refs.facebookLink.value = "";
+  refs.checkCaptionApproved.checked = false;
+  refs.checkPostedToFacebook.checked = false;
+}
+
+async function authFetch(url, options = {}) {
+  const headers = new Headers(options.headers || {});
+  if (currentUser) {
+    const token = await currentUser.getIdToken();
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  return fetch(url, { ...options, headers });
+}
+
+async function jsonFromResponse(response) {
+  const contentType = response.headers.get("content-type") || "";
+  const data = contentType.includes("application/json") ? await response.json() : { detail: await response.text() };
+  return { ok: response.ok, data };
 }
 
 async function requestJson(url, options = {}) {
@@ -364,307 +519,376 @@ async function requestJson(url, options = {}) {
   }
 }
 
-async function jsonFromResponse(response) {
-  const contentType = response.headers.get("content-type") || "";
-  const data = contentType.includes("application/json") ? await response.json() : { detail: await response.text() };
-  return { ok: response.ok, data };
-}
-
-async function authFetch(url, options = {}) {
-  const headers = new Headers(options.headers || {});
-  if (currentUser) {
-    const token = await currentUser.getIdToken();
-    headers.set("Authorization", `Bearer ${token}`);
+async function loadSession() {
+  const response = await jsonFromResponse(await authFetch("/api/session"));
+  if (response.ok && response.data.user) {
+    session = response.data;
   }
-  return fetch(url, { ...options, headers });
-}
-
-function renderAll() {
   renderSession();
-  renderCounts();
-  renderJobList(activeQueue());
-  renderSelectedJob();
-  updateWorkflowGuide();
 }
 
-function renderSession() {
-  const role = session.user?.role || "user";
-  const name = session.user?.display_name || session.user?.email || "Demo operator";
-  elements.roleBadge.textContent = role;
-  elements.userLabel.textContent = `${name} · ${roleCopy(role)} · ${session.firebase_project_id || "demo"}`;
-  elements.metricRole.textContent = role === "maam_jean" ? "Ma'am Jean" : role;
-}
-
-function renderCounts() {
-  const counts = countJobs();
-  elements.countAssigned.textContent = String(counts.assigned_today);
-  elements.countWaiting.textContent = String(counts.waiting_approval);
-  elements.countReady.textContent = String(counts.ready_to_post);
-  elements.countPosted.textContent = String(counts.posted_today);
-}
-
-function renderJobList(queueName) {
-  elements.jobList.replaceChildren();
-  const visibleJobs = jobs.filter((job) => queueName === "assigned_today" || job.status === queueName);
-  for (const job of visibleJobs) {
-    const row = elements.jobTemplate.content.cloneNode(true).querySelector(".job-row");
-    row.classList.toggle("selected", job.id === selectedJobId);
-    row.querySelector("strong").textContent = job.property_name;
-    row.querySelector("em").textContent = job.id;
-    row.querySelector(".job-row-meta").textContent = `${job.assigned_by} to ${job.operator} · Due ${job.due_date}`;
-    row.querySelector(".job-row-status").textContent = statusLabel(job.status);
-    row.addEventListener("click", () => selectJob(job.id));
-    elements.jobList.append(row);
+async function loadJobs() {
+  const response = await jsonFromResponse(await authFetch("/api/jobs"));
+  if (response.ok && Array.isArray(response.data.jobs)) {
+    jobs = response.data.jobs.map((job) => ({ ...demoJobs[0], ...normalizeJob(job) }));
   }
-  if (visibleJobs.length === 0) {
-    const empty = doc.createElement("p");
-    empty.className = "empty-state";
-    empty.textContent = "No jobs in this queue.";
-    elements.jobList.append(empty);
+  if (!jobs.some((job) => job.id === activeJobId)) {
+    activeJobId = jobs[0].id;
   }
-}
-
-function renderSelectedJob() {
-  const job = selectedJob();
-  activeProperty = job.property_name;
-  activeCaption = job.caption || "";
-  elements.selectedPropertyTitle.textContent = job.property_name;
-  elements.selectedPropertyMeta.textContent = `${job.assigned_by} · ${job.operator} · ${job.id}`;
-  elements.propertyInput.value = job.property_name;
-  elements.assignedBy.value = job.assigned_by;
-  elements.operatorName.value = job.operator;
-  elements.dueDate.value = job.due_date;
-  elements.driveUrl.value = job.drive_url;
-  elements.validationState.textContent = statusLabel(job.status);
-  elements.validationState.className = `status-badge ${job.status === "ready_to_post" ? "ready" : "review"}`;
-  renderValidation(job);
-  renderImages(job.images || []);
-  renderCaption(job);
-  renderTracker(job);
-  renderActivity(job.activity || []);
-}
-
-function renderValidation(job) {
-  const checks = [
-    ["Drive folder", job.drive_url ? "Passed" : "Needs attention"],
-    ["Caption document", job.caption_document_name ? "Passed" : "Needs attention"],
-    ["Photo minimum", selectedImages(job).length >= 3 ? "Passed" : "Needs attention"],
-  ];
-  elements.validationResults.replaceChildren(...checks.map(([label, state]) => {
-    const item = doc.createElement("p");
-    item.innerHTML = `<strong>${label}</strong><span>${state}</span>`;
-    return item;
-  }));
-  elements.metricValidation.textContent = checks.every(([, state]) => state === "Passed") ? "Ready" : "Review";
-}
-
-function renderImages(images) {
-  const job = selectedJob();
-  elements.imageGallery.replaceChildren();
-  for (const image of images) {
-    const card = elements.imageTemplate.content.cloneNode(true).querySelector(".photo-card");
-    card.classList.toggle("selected", Boolean(image.selected));
-    card.querySelector(".photo-preview").style.backgroundImage = `linear-gradient(rgba(1,105,111,.12), rgba(1,105,111,.04)), url("${image.url}")`;
-    card.querySelector(".photo-meta").textContent = image.name;
-    card.addEventListener("click", () => {
-      image.selected = !image.selected;
-      renderImages(job.images || []);
-      updateWorkflowGuide();
-    });
-    elements.imageGallery.append(card);
-  }
-  const selectedCount = selectedImages(job).length;
-  elements.selectedPhotoBadge.textContent = `${selectedCount} selected`;
-  elements.metricPhotos.textContent = `${selectedCount} selected`;
-  elements.checkPhotos.checked = selectedCount >= 3;
-  elements.zipDownload.href = `/prepared/${encodeURIComponent(job.property_name)}.zip`;
-  elements.zipDownload.removeAttribute("aria-disabled");
-}
-
-function renderCaption(job) {
-  activeCaption = job.caption || demoJobs[0].caption;
-  elements.sourceDocName.textContent = `Source caption document: ${job.caption_document_name || "No document loaded"}`;
-  elements.captionSourceOutput.textContent = job.caption_details || "No caption details found.";
-  elements.captionOutput.textContent = activeCaption;
-  elements.captionVariants.replaceChildren();
-  const variants = normalizeVariants(job);
-  for (const [index, variant] of variants.entries()) {
-    const article = doc.createElement("article");
-    article.className = "caption-variant";
-    article.innerHTML = `<h3>Variant ${index + 1}</h3><p></p><button type="button">Use variant</button>`;
-    article.querySelector("p").textContent = variant;
-    article.querySelector("button").addEventListener("click", () => {
-      job.caption = variant;
-      renderCaption(job);
-      addActivity(`Variant ${index + 1} selected as final caption.`);
-    });
-    elements.captionVariants.append(article);
-  }
-  const clean = validateCaption(activeCaption);
-  elements.metricCaption.textContent = clean ? "APG clean" : "Needs edit";
-}
-
-function renderTracker(job) {
-  elements.trackerRow.value = `${job.id} | ${job.property_name} | ${job.operator} | ${statusLabel(job.status)} | Facebook URL pending`;
-  elements.dailyReport.value = `${job.property_name}: assets selected, caption checked, manual publish checklist pending.`;
-}
-
-function renderActivity(activity) {
-  elements.activityLog.replaceChildren();
-  for (const item of activity) {
-    const row = doc.createElement("li");
-    row.innerHTML = `<time>${item.at}</time><span></span>`;
-    row.querySelector("span").textContent = item.text;
-    elements.activityLog.append(row);
-  }
-  elements.activityCount.textContent = `${activity.length} events`;
-}
-
-function updateWorkflowGuide() {
-  const canDownload = workflowState.prepared;
-  const canCopyCaption = workflowState.downloadedAssets && workflowState.generatedCaption;
-  const canOpenFacebook = workflowState.copiedCaption;
-  const canEnterFacebookUrl = workflowState.copiedCaption && workflowState.openedFacebook && elements.checkManualPost.checked;
-  const canLogPost = canEnterFacebookUrl && workflowState.enteredFacebookUrl && elements.checkCaption.checked && elements.checkPhotos.checked;
-  elements.copyCaption.disabled = !canCopyCaption;
-  elements.openFacebook.classList.toggle("disabled", !canOpenFacebook);
-  elements.openFacebook.setAttribute("aria-disabled", String(!canOpenFacebook));
-  elements.facebookUrlGroup.hidden = !canEnterFacebookUrl;
-  elements.logButton.disabled = !canLogPost;
-  setStepState("download", workflowState.downloadedAssets, canDownload);
-  setStepState("copy", workflowState.copiedCaption, canCopyCaption);
-  setStepState("facebook", workflowState.openedFacebook, canOpenFacebook);
-  setStepState("url", workflowState.enteredFacebookUrl, canEnterFacebookUrl);
-  setStepState("log", workflowState.loggedPost, canLogPost);
-}
-
-function setStepState(name, complete, enabled) {
-  const step = doc.querySelector(`.workflow-step[data-step="${name}"]`);
-  if (!step) {
-    return;
-  }
-  step.dataset.state = complete ? "complete" : enabled ? "active" : "locked";
-  const marker = step.querySelector(".step-marker");
-  marker.textContent = complete ? "Done" : marker.dataset.number;
-}
-
-function startNewIntake() {
-  selectedJobId = jobs[0].id;
-  elements.propertyInput.value = "";
-  elements.assignedBy.value = "Ma'am Jean";
-  elements.operatorName.value = "";
-  elements.driveUrl.value = "";
-  elements.validationResults.innerHTML = "<p><strong>New intake</strong><span>Ready for property details</span></p>";
-  setStatus("New intake ready");
-}
-
-function selectJob(jobId) {
-  selectedJobId = jobId;
-  resetWorkflowState();
   renderAll();
-  loadActivity(jobId);
+  setStatus(response.ok ? "Live queue loaded" : "Demo queue loaded");
 }
 
 async function loadActivity(jobId) {
   try {
     const response = await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/activity`));
     if (response.ok && Array.isArray(response.data.activity)) {
-      selectedJob().activity = response.data.activity;
-      renderActivity(response.data.activity);
+      const job = activeJob();
+      job.activity = response.data.activity;
+      renderActivity(job.activity);
     }
   } catch (error) {
-    if (!(error instanceof Error)) {
-      throw error;
-    }
+    if (!(error instanceof Error)) throw error;
   }
 }
 
-function selectedJob() {
-  return jobs.find((job) => job.id === selectedJobId) || jobs[0];
+async function createOrPrepareJob() {
+  const payload = formPayload();
+  const created = await requestJson("/api/jobs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (created.ok && created.data.id) {
+    jobs = [normalizeJob(created.data), ...jobs];
+    activeJobId = created.data.id;
+  }
+  await prepareSelectedJob("form");
 }
 
-function selectedImages(job) {
-  return (job.images || []).filter((image) => image.selected);
-}
-
-function normalizeVariants(data) {
-  if (Array.isArray(data)) {
-    return data;
+async function prepareSelectedJob(source) {
+  const job = activeJob();
+  setStatus("Running pipeline");
+  const jobId = job.id;
+  await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/validate`, { method: "POST" }));
+  const prepared = await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/prepare`, { method: "POST" }));
+  const legacy = await authFetch("/api/prepare", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ property_name: refs.propertyName.value.trim() || job.propertyName }),
+  });
+  if (prepared.ok) {
+    Object.assign(job, normalizeJob(prepared.data));
+  } else if (legacy.ok) {
+    Object.assign(job, normalizeJob(await legacy.json()));
   }
-  if (Array.isArray(data.variants)) {
-    return data.variants;
-  }
-  if (Array.isArray(data.captions)) {
-    return data.captions;
-  }
-  return [];
-}
-
-function validateCaption(caption) {
-  const lower = caption.toLowerCase();
-  return !lower.includes("least term") && !lower.includes("negotiables") && !lower.includes("negotioables") && !/[\u{1f300}-\u{1faff}]/u.test(caption);
+  job.status = source === "form" ? "waiting_approval" : "ready-to-post";
+  activeJobId = job.id;
+  workflowState.prepared = true;
+  workflowState.generatedCaption = Boolean(job.finalCaption || job.variants.length);
+  hydrateForm();
+  renderAll();
+  setStatus(prepared.ok || legacy.ok ? "Pipeline ready" : "Demo pipeline ready");
 }
 
 function formPayload() {
   return {
-    property_name: elements.propertyInput.value.trim(),
-    assigned_by: elements.assignedBy.value.trim() || "Ma'am Jean",
-    operator: elements.operatorName.value.trim() || "Unassigned",
-    due_date: elements.dueDate.value,
-    drive_url: elements.driveUrl.value.trim(),
+    property_name: refs.propertyName.value.trim(),
+    assigned_by: refs.assignedBy.value.trim() || "Ma'am Jean",
+    operator: refs.operatorName.value.trim() || "Unassigned",
+    due_date: refs.dueDate.value,
+    drive_url: refs.driveUrl.value.trim(),
   };
-}
-
-function countJobs() {
-  return {
-    assigned_today: jobs.length,
-    waiting_approval: jobs.filter((job) => job.status === "waiting_approval").length,
-    ready_to_post: jobs.filter((job) => job.status === "ready_to_post").length,
-    posted_today: jobs.filter((job) => job.status === "posted_today").length,
-  };
-}
-
-function activeQueue() {
-  return doc.querySelector(".queue-button.active")?.dataset.queue || "assigned_today";
-}
-
-function statusLabel(status) {
-  return String(status).replaceAll("_", " ");
-}
-
-function roleCopy(role) {
-  if (role === "admin") {
-    return "admin controls";
-  }
-  if (role === "maam_jean") {
-    return "Ma'am Jean approvals";
-  }
-  return "user posting lane";
-}
-
-function addActivity(text) {
-  const job = selectedJob();
-  const at = new Intl.DateTimeFormat("en-PH", { hour: "2-digit", minute: "2-digit" }).format(new Date());
-  job.activity = [{ at, text }, ...(job.activity || [])];
-  renderActivity(job.activity);
-}
-
-function resetWorkflowState() {
-  workflowState.prepared = true;
-  workflowState.downloadedAssets = false;
-  workflowState.generatedCaption = Boolean(selectedJob().caption);
-  workflowState.copiedCaption = false;
-  workflowState.openedFacebook = false;
-  workflowState.enteredFacebookUrl = false;
-  workflowState.loggedPost = false;
-  elements.facebookInput.value = "";
-  elements.checkCaption.checked = false;
-  elements.checkManualPost.checked = false;
 }
 
 function setStatus(message) {
-  elements.connectionStatus.textContent = message;
+  refs.connectionStatus.textContent = message;
 }
 
-doc.documentElement.dataset.theme = localStorage.getItem("apg-theme") || "light";
+if (auth) {
+  onAuthStateChanged(auth, async (user) => {
+    currentUser = user;
+    refs.signInButton.hidden = Boolean(user);
+    refs.signOutButton.hidden = !user;
+    await loadSession();
+    await loadJobs();
+  });
+} else {
+  refs.userLabel.textContent = "Demo mode: Firebase config not loaded. Ma'am Jean workflow is available.";
+}
+
+refs.signInButton.addEventListener("click", async () => {
+  if (!auth) {
+    setStatus("Firebase config missing; staying in demo mode");
+    return;
+  }
+  await signInWithPopup(auth, provider);
+});
+
+refs.signOutButton.addEventListener("click", async () => {
+  if (auth) {
+    await signOut(auth);
+  }
+});
+
+el("themeToggle").addEventListener("click", () => {
+  const root = doc.documentElement;
+  const nextTheme = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+  root.setAttribute("data-theme", nextTheme);
+  localStorage.setItem("apg-theme", nextTheme);
+});
+
+doc.querySelectorAll(".nav-btn").forEach((button) => {
+  button.addEventListener("click", () => {
+    doc.querySelectorAll(".nav-btn").forEach((item) => item.classList.remove("active"));
+    button.classList.add("active");
+  });
+});
+
+["propertyName", "assignedBy", "operatorName", "dueDate", "driveUrl", "captionDetails", "finalCaption", "facebookLink"].forEach((id) => {
+  el(id).addEventListener("input", () => {
+    syncFormToJob();
+    renderMetrics();
+    renderJobList();
+    if (id === "facebookLink") {
+      workflowState.enteredFacebookUrl = refs.facebookLink.value.trim().length > 0;
+      refs.checkPostedToFacebook.checked = workflowState.enteredFacebookUrl;
+      updateWorkflowGuide();
+    }
+  });
+});
+
+el("validateAssetsBtn").addEventListener("click", () => {
+  syncFormToJob();
+  const job = activeJob();
+  job.hasCaptionDoc = refs.captionDetails.value.trim().length > 0;
+  job.imageCount = job.images.length;
+  renderAll();
+  log("Ran validation for " + job.propertyName);
+  toast(job.status === "missing-assets" ? "Validation blocked." : "Validation passed.");
+});
+
+const generateCaptionButton = el("generateCaption");
+generateCaptionButton.addEventListener("click", async () => {
+  syncFormToJob();
+  const job = activeJob();
+  const jobId = job.id;
+  const response = await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/captions`, { method: "POST" }));
+  const variants = response.ok ? normalizeVariants(response.data) : [];
+  if (variants.length > 0) {
+    job.variants = variants;
+  } else if (!job.variants.length) {
+    job.variants = buildVariants(job.details || refs.captionDetails.value || "Property details pending");
+  }
+  workflowState.generatedCaption = true;
+  renderVariants();
+  renderMetrics();
+  updateWorkflowGuide();
+  log("Generated " + job.variants.length + " caption variants");
+  setStatus(response.ok ? "Caption variants ready" : "Demo caption variants ready");
+  toast("Caption variants generated.");
+});
+
+el("checkRulesBtn").addEventListener("click", () => {
+  syncFormToJob();
+  const issues = checkCaptionRules(refs.finalCaption.value.trim());
+  refs.captionRuleResult.textContent = issues.length ? "Rule check: " + issues.join(" ") : "Rule check passed. No banned wording or emoji-like symbols found.";
+  if (!issues.length && refs.finalCaption.value.trim()) {
+    activeJob().status = "ready-to-post";
+    refs.checkCaptionApproved.checked = true;
+  }
+  renderMetrics();
+  renderJobList();
+  updateWorkflowGuide();
+  log("Ran caption rule check");
+  toast(issues.length ? "Caption has rule issues." : "Caption rules passed.");
+});
+
+el("copyCaptionBtn").addEventListener("click", () => {
+  if (!workflowState.generatedCaption) {
+    toast("Generate the caption first");
+    return;
+  }
+  copyText(refs.finalCaption.value.trim(), "Final caption copied.");
+  workflowState.copiedCaption = true;
+  refs.checkCaptionApproved.checked = true;
+  updateWorkflowGuide();
+});
+
+el("copyChecklistBtn").addEventListener("click", () => {
+  const job = activeJob();
+  const packet = `PROPERTY: ${job.propertyName}\nASSIGNED BY: ${job.assignedBy}\nIMAGES SELECTED: ${job.images.filter((i) => i.selected).length}\nCAPTION:\n${job.finalCaption || "[pending caption]"}\n\nPOSTING REMINDER:\n1. Open Facebook page\n2. Upload selected images manually\n3. Paste caption\n4. Publish post\n5. Paste Facebook link back into console`;
+  copyText(packet, "Posting packet copied.");
+});
+
+el("openFacebookBtn").addEventListener("click", () => {
+  if (!workflowState.copiedCaption) {
+    toast("Copy the caption before opening Facebook");
+    return;
+  }
+  window.open("https://www.facebook.com/alphapremierRealty/", "_blank", "noopener,noreferrer");
+  workflowState.openedFacebook = true;
+  refs.checkPostedToFacebook.checked = true;
+  updateWorkflowGuide();
+  log("Opened Alpha Premier Realty Facebook page");
+  toast("Facebook page opened in a new tab.");
+});
+
+refs.logButton.addEventListener("click", async () => {
+  syncFormToJob();
+  const job = activeJob();
+  const selectedCount = job.images.filter((i) => i.selected).length;
+  if (!refs.checkCaptionApproved.checked || selectedCount < 3 || !refs.checkPostedToFacebook.checked || !job.facebookLink.trim()) {
+    toast("Complete the manual publish checklist first.");
+    return;
+  }
+  const jobId = job.id;
+  const response = await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/mark-posted`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ facebook_url: job.facebookLink }),
+  }));
+  await authFetch("/api/log", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ property_name: job.propertyName, facebook_url: job.facebookLink }),
+  });
+  job.status = "posted";
+  job.trackerStatus = "ready";
+  workflowState.loggedPost = true;
+  renderAll();
+  prepareTrackerPreview();
+  log(response.ok ? "Facebook URL logged to tracker." : "Demo tracker sync completed.");
+  toast("Job marked as posted.");
+});
+
+el("prepareTrackerBtn").addEventListener("click", () => {
+  syncFormToJob();
+  prepareTrackerPreview();
+  toast("Tracker preview prepared.");
+});
+
+el("copyTrackerRowBtn").addEventListener("click", () => copyText(refs.trackerPreview.value, "Tracker row copied."));
+el("copyDailyReportBtn").addEventListener("click", () => copyText(refs.dailyReportPreview.value, "Daily report entry copied."));
+
+el("clearLogBtn").addEventListener("click", () => {
+  refs.activityLog.innerHTML = "";
+  toast("Activity log cleared.");
+});
+
+el("simulatePipelineBtn").addEventListener("click", () => {
+  const job = activeJob();
+  job.hasCaptionDoc = true;
+  if (job.images.length < 3) {
+    job.images.push({ id: "extra1", label: "Auto-added sample angle", selected: true });
+  }
+  job.imageCount = job.images.length;
+  if (!job.variants.length) job.variants = buildVariants(job.details || refs.captionDetails.value || "Property details pending");
+  if (!job.finalCaption) job.finalCaption = job.variants[0];
+  workflowState.prepared = true;
+  workflowState.generatedCaption = true;
+  hydrateForm();
+  renderAll();
+  refs.captionRuleResult.textContent = "Pipeline simulation completed. Review the generated caption and selected images.";
+  log("Simulated the automation pipeline");
+  toast("Pipeline simulation complete.");
+});
+
+el("seedGoodDataBtn").addEventListener("click", () => {
+  const job = activeJob();
+  job.imageCount = 4;
+  job.hasCaptionDoc = true;
+  job.docName = "Clean-sample-caption.txt";
+  if (job.images.length < 4) {
+    job.images = [
+      { id: "img1", label: "Main facade", selected: true },
+      { id: "img2", label: "Interior shot", selected: true },
+      { id: "img3", label: "Secondary angle", selected: true },
+      { id: "img4", label: "Map context", selected: false },
+    ];
+  }
+  job.details = "Property Type: Commercial Unit\nLocation: Pasig\nFloor Area: 95 sqm\nRental: PHP 68,000/month\nNotes: visible frontage, move-in ready, near major roads";
+  hydrateForm();
+  renderAll();
+  log("Loaded clean sample data");
+  toast("Clean sample data loaded.");
+});
+
+el("seedBadDataBtn").addEventListener("click", () => {
+  const job = activeJob();
+  job.imageCount = 2;
+  job.hasCaptionDoc = false;
+  job.docName = "";
+  job.images = [
+    { id: "img1", label: "Only photo 1", selected: true },
+    { id: "img2", label: "Only photo 2", selected: true },
+  ];
+  job.details = "";
+  job.finalCaption = "Negotiables available 😊";
+  hydrateForm();
+  renderAll();
+  log("Loaded broken sample data");
+  toast("Broken sample data loaded.");
+});
+
+el("newJobBtn").addEventListener("click", () => {
+  const nextId = "APG-0629-00" + (jobs.length + 1);
+  const job = {
+    id: nextId,
+    propertyName: "New Assigned Property",
+    assignedBy: "Ma'am Jean",
+    operator: "Unassigned",
+    dueDate: new Date().toISOString().slice(0, 10),
+    driveUrl: "",
+    imageCount: 0,
+    hasCaptionDoc: false,
+    docName: "",
+    status: "missing-assets",
+    trackerStatus: "pending",
+    details: "",
+    images: [],
+    variants: [],
+    finalCaption: "",
+    facebookLink: "",
+    activity: [],
+  };
+  jobs.unshift(job);
+  activeJobId = job.id;
+  resetWorkflowState();
+  hydrateForm();
+  renderAll();
+  log("Created a new intake job");
+  toast("New job created.");
+});
+
+el("processNext").addEventListener("click", async () => {
+  const response = await requestJson("/api/queue/next", { method: "POST" });
+  if (response.ok && response.data.property_name) {
+    refs.propertyName.value = response.data.property_name;
+    await prepareSelectedJob("queue");
+    return;
+  }
+  setStatus("Demo fallback loaded next property");
+  activeJobId = jobs[0].id;
+  resetWorkflowState();
+  renderAll();
+});
+
+refs.zipDownload.addEventListener("click", (event) => {
+  if (refs.zipDownload.getAttribute("aria-disabled") === "true") {
+    event.preventDefault();
+    return;
+  }
+  workflowState.downloadedAssets = true;
+  updateWorkflowGuide();
+  log("Downloaded image package");
+});
+
+[refs.checkCaptionApproved, refs.checkPhotosSelected, refs.checkPostedToFacebook].forEach((checkbox) => {
+  checkbox.addEventListener("change", updateWorkflowGuide);
+});
+
+doc.documentElement.setAttribute("data-theme", localStorage.getItem("apg-theme") || "light");
 renderAll();
+log("Console initialized");
+prepareTrackerPreview();
