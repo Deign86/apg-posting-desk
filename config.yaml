@@ -1,0 +1,19 @@
+google_drive:
+  listings_folder_id: "1GXeGULYswb7jXcMGCCRm2RQ_h0EKsDll"
+
+ai:
+  provider: "nvidia-nim"
+  model: "stepfun-ai/step-3.7-flash"
+
+tracking:
+  posting_tracker_sheet_id: "1xzzuq8KHbzrRIGMyIo0AQVgq0LQklDkW8-S9Y__7RvM"
+  daily_report_doc_id: "1mctXkKFhZLCEXQtnzO4dmHhUSGOKFdFliF_qL17U68o"
+
+processing:
+  min_images: 3
+  max_retries: 3
+  batch_size: 5
+  concurrent_tasks: 3
+
+posted_by: "APG Automation"
+timezone: "Asia/Manila"

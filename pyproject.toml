@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "apg-property-posting-automation"
+version = "0.1.0"
+description = "Automated APG property posting workflow for Facebook and tracking updates."
+requires-python = ">=3.11"
+dependencies = [
+  "anthropic>=0.40.0",
+  "fastapi>=0.115.0",
+  "firebase-admin>=6.5.0",
+  "google-api-python-client>=2.150.0",
+  "google-auth-oauthlib>=1.2.1",
+  "openai>=1.55.0",
+  "Pillow>=11.0.0",
+  "PyPDF2>=3.0.1",
+  "python-docx>=1.1.2",
+  "python-dotenv>=1.0.1",
+  "PyYAML>=6.0.2",
+  "requests>=2.32.3",
+  "uvicorn>=0.30.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3.3"]
+
+[project.scripts]
+apg-post = "apg_automation.main:main"

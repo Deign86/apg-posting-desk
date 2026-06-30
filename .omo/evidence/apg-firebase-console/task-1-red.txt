@@ -1,0 +1,165 @@
+﻿...FF..FFFF......FF                                                      [100%]
+================================== FAILURES ===================================
+_______ test_require_firebase_user_exposes_apg_role_profile_from_claims _______
+
+    def test_require_firebase_user_exposes_apg_role_profile_from_claims():
+        class RoleFirebaseAuth(FakeFirebaseAuth):
+            def verify_id_token(self, token):
+                self.tokens.append(token)
+                if token == "maam-jean-token":
+                    return {
+                        "uid": "maam-jean",
+                        "email": "maam.jean@apg.example",
+                        "role": "maam_jean",
+                        "name": "Ma'am Jean",
+                    }
+                raise ValueError("bad token")
+    
+        app = FastAPI()
+        verifier = FirebaseTokenVerifier(firebase_auth=RoleFirebaseAuth())
+    
+        @app.get("/session-user")
+        def session_user(user=Depends(require_firebase_user(verifier))):
+            return {
+                "uid": user["uid"],
+                "email": user["email"],
+                "role": user["role"],
+                "display_name": user.get("display_name"),
+            }
+    
+        response = TestClient(app).get(
+            "/session-user",
+            headers={"Authorization": "Bearer maam-jean-token"},
+        )
+    
+        assert response.status_code == 200
+>       assert response.json() == {
+            "uid": "maam-jean",
+            "email": "maam.jean@apg.example",
+            "role": "maam_jean",
+            "display_name": "Ma'am Jean",
+        }
+E       assert {'display_nam...: 'maam-jean'} == {'display_nam...: 'maam-jean'}
+E         
+E         Omitting 3 identical items, use -vv to show
+E         Differing items:
+E         {'display_name': None} != {'display_name': "Ma'am Jean"}
+E         Use -v to get more diff
+
+tests\test_firebase_auth.py:89: AssertionError
+_________ test_firebase_auth_exports_role_dependency_for_admin_denial _________
+
+    def test_firebase_auth_exports_role_dependency_for_admin_denial():
+        import apg_automation.firebase_auth as firebase_auth
+    
+>       assert hasattr(firebase_auth, "require_role"), (
+            "admin-only APIs need a reusable role dependency that rejects "
+            "non-admin Firebase users"
+        )
+E       AssertionError: admin-only APIs need a reusable role dependency that rejects non-admin Firebase users
+E       assert False
+E        +  where False = hasattr(<module 'apg_automation.firebase_auth' from 'C:\\Users\\Deign\\Downloads\\APG Prototype System for Automated Posting\\apg_automation\\firebase_auth.py'>, 'require_role')
+
+tests\test_firebase_auth.py:100: AssertionError
+______ test_session_route_returns_demo_role_profile_and_firebase_project ______
+
+tmp_path = WindowsPath('C:/Users/Deign/AppData/Local/Temp/pytest-of-Deign/pytest-35/test_session_route_returns_dem0')
+
+    def test_session_route_returns_demo_role_profile_and_firebase_project(tmp_path):
+        client, _ = build_client(tmp_path)
+    
+        response = client.get("/api/session")
+    
+>       assert response.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests\test_web_app.py:101: AssertionError
+_______________ test_jobs_route_lists_operational_queue_counts ________________
+
+tmp_path = WindowsPath('C:/Users/Deign/AppData/Local/Temp/pytest-of-Deign/pytest-35/test_jobs_route_lists_operatio0')
+
+    def test_jobs_route_lists_operational_queue_counts(tmp_path):
+        client, _ = build_client(tmp_path)
+    
+        response = client.get("/api/jobs")
+    
+>       assert response.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests\test_web_app.py:118: AssertionError
+________________ test_create_job_route_accepts_intake_payload _________________
+
+tmp_path = WindowsPath('C:/Users/Deign/AppData/Local/Temp/pytest-of-Deign/pytest-35/test_create_job_route_accepts_0')
+
+    def test_create_job_route_accepts_intake_payload(tmp_path):
+        client, _ = build_client(tmp_path)
+    
+        response = client.post(
+            "/api/jobs",
+            json={
+                "property_name": "Office Space - Ortigas CBD",
+                "assigned_by": "Ma'am Jean",
+                "operator": "Miguel",
+                "due_date": "2026-06-30",
+                "drive_url": "https://drive.google.com/drive/folders/sample-ortigas",
+            },
+        )
+    
+>       assert response.status_code == 201
+E       assert 404 == 201
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests\test_web_app.py:144: AssertionError
+___________ test_mark_posted_route_requires_manual_publish_contract ___________
+
+tmp_path = WindowsPath('C:/Users/Deign/AppData/Local/Temp/pytest-of-Deign/pytest-35/test_mark_posted_route_require0')
+
+    def test_mark_posted_route_requires_manual_publish_contract(tmp_path):
+        client, _ = build_client(tmp_path)
+    
+        response = client.post(
+            "/api/jobs/APG-0629-001/mark-posted",
+            json={"facebook_url": "https://facebook.com/example-post"},
+        )
+    
+>       assert response.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+tests\test_web_app.py:160: AssertionError
+___________ test_frontend_markup_matches_prototype_console_sections ___________
+
+    def test_frontend_markup_matches_prototype_console_sections():
+        html = Path("index.html").read_text(encoding="utf-8")
+    
+>       assert "APG Posting Console" in html
+E       assert 'APG Posting Console' in '<!doctype html>\n<html lang="en">\n  <head>\n    <meta charset="utf-8" />\n    <meta name="viewport" content="width=d...ion>\n      </figure>\n    </template>\n\n    <script type="module" src="/src/main.js"></script>\n  </body>\n</html>\n'
+
+tests\test_vite_app.py:80: AssertionError
+__________ test_frontend_source_declares_role_and_job_api_contracts ___________
+
+    def test_frontend_source_declares_role_and_job_api_contracts():
+        source = Path("src/main.js").read_text(encoding="utf-8")
+    
+>       assert "admin" in source
+E       assert 'admin' in 'import "./styles.css";\nimport { initializeApp } from "firebase/app";\nimport {\n  GoogleAuthProvider,\n  getAuth,\n ...oken();\n    headers.set("Authorization", `Bearer ${token}`);\n  }\n  return fetch(url, { ...options, headers });\n}\n'
+
+tests\test_vite_app.py:98: AssertionError
+============================== warnings summary ===============================
+..\..\AppData\Roaming\Python\Python314\site-packages\fastapi\testclient.py:1
+  C:\Users\Deign\AppData\Roaming\Python\Python314\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_firebase_auth.py::test_require_firebase_user_exposes_apg_role_profile_from_claims
+FAILED tests/test_firebase_auth.py::test_firebase_auth_exports_role_dependency_for_admin_denial
+FAILED tests/test_web_app.py::test_session_route_returns_demo_role_profile_and_firebase_project
+FAILED tests/test_web_app.py::test_jobs_route_lists_operational_queue_counts
+FAILED tests/test_web_app.py::test_create_job_route_accepts_intake_payload - ...
+FAILED tests/test_web_app.py::test_mark_posted_route_requires_manual_publish_contract
+FAILED tests/test_vite_app.py::test_frontend_markup_matches_prototype_console_sections
+FAILED tests/test_vite_app.py::test_frontend_source_declares_role_and_job_api_contracts
+8 failed, 11 passed, 1 warning in 1.38s

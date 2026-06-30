@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#01696f" />
+    <meta
+      name="description"
+      content="APG Posting Console for intake, Drive validation, caption preparation, manual Facebook publishing, and tracker sync."
+    />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Instrument+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <title>APG Posting Console</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#workspace">Skip to console workspace</a>
+    <div id="app" class="app-shell">
+      <aside class="sidebar" aria-label="Posting queues">
+        <div class="brand-block">
+          <p class="eyebrow">Alpha Premiere Group</p>
+          <h1>APG Posting Console</h1>
+          <p id="connectionStatus" class="status-pill" role="status">Demo ready</p>
+        </div>
+
+        <section class="auth-card" aria-labelledby="sessionTitle">
+          <div class="section-heading compact">
+            <div>
+              <p class="kicker">Session</p>
+              <h2 id="sessionTitle">Role access</h2>
+            </div>
+            <span id="roleBadge" class="role-badge">user</span>
+          </div>
+          <p id="userLabel">Demo mode: Ma'am Jean queue visibility enabled.</p>
+          <div class="button-row">
+            <button id="signInButton" class="secondary-button" type="button">Sign in</button>
+            <button id="signOutButton" class="secondary-button" type="button" hidden>Sign out</button>
+            <button id="themeToggle" class="icon-button" type="button" aria-label="Toggle theme" title="Toggle theme">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M12 3v2.2M12 18.8V21M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M3 12h2.2M18.8 12H21M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6" />
+                <circle cx="12" cy="12" r="4" />
+              </svg>
+            </button>
+          </div>
+        </section>
+
+        <nav class="queue-nav" aria-label="Queue filters">
+          <button class="queue-button active" type="button" data-queue="assigned_today">
+            <span>Assigned today</span><strong id="countAssigned">0</strong>
+          </button>
+          <button class="queue-button" type="button" data-queue="waiting_approval">
+            <span>Waiting approval</span><strong id="countWaiting">0</strong>
+          </button>
+          <button class="queue-button" type="button" data-queue="ready_to_post">
+            <span>Ready to post</span><strong id="countReady">0</strong>
+          </button>
+          <button class="queue-button" type="button" data-queue="posted_today">
+            <span>Posted today</span><strong id="countPosted">0</strong>
+          </button>
+        </nav>
+
+        <section class="job-list-panel" aria-labelledby="jobListTitle">
+          <div class="section-heading compact">
+            <div>
+              <p class="kicker">JOB LIST</p>
+              <h2 id="jobListTitle">Active properties</h2>
+            </div>
+            <button id="refreshJobs" class="icon-button" type="button" aria-label="Refresh jobs" title="Refresh jobs">
+              <svg aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M20 12a8 8 0 1 1-2.34-5.66" />
+                <path d="M20 4v6h-6" />
+              </svg>
+            </button>
+          </div>
+          <div id="jobList" class="job-list" aria-live="polite"></div>
+        </section>
+      </aside>
+
+      <main id="workspace" class="workspace">
+        <header class="workspace-header">
+          <div>
+            <p class="eyebrow">Manual Facebook publishing desk</p>
+            <h2 id="selectedPropertyTitle">Novaliches, 440 Bagbag</h2>
+            <p id="selectedPropertyMeta" class="muted-line">Assigned by Ma'am Jean · Due today · APG-2401</p>
+          </div>
+          <div class="header-actions">
+            <button id="newIntake" class="secondary-button" type="button">New intake</button>
+            <button id="runPipeline" class="primary-button" type="button">Run pipeline</button>
+          </div>
+        </header>
+
+        <section class="metric-grid" aria-label="Selected property metrics">
+          <article class="metric-tile">
+            <span>Validation</span><strong id="metricValidation">Ready</strong><small>Drive folder and caption doc</small>
+          </article>
+          <article class="metric-tile">
+            <span>Photos</span><strong id="metricPhotos">3 selected</strong><small>Minimum for Facebook</small>
+          </article>
+          <article class="metric-tile">
+            <span>Caption</span><strong id="metricCaption">APG clean</strong><small>No emojis, least term, negotiables</small>
+          </article>
+          <article class="metric-tile">
+            <span>Role lane</span><strong id="metricRole">Ma'am Jean</strong><small>Approve and assign</small>
+          </article>
+        </section>
+
+        <section class="console-grid">
+          <article class="panel intake-panel" aria-labelledby="intakeTitle">
+            <div class="section-heading">
+              <div>
+                <p class="kicker">Intake</p>
+                <h2 id="intakeTitle">Intake and validation</h2>
+              </div>
+              <span id="validationState" class="status-badge review">Needs check</span>
+            </div>
+            <form id="prepareForm" class="form-grid">
+              <label for="propertyName">Property name</label>
+              <input id="propertyName" name="propertyName" autocomplete="off" required />
+
+              <label for="assignedBy">Assigned by</label>
+              <input id="assignedBy" name="assignedBy" autocomplete="name" />
+
+              <label for="operatorName">Operator</label>
+              <input id="operatorName" name="operatorName" autocomplete="name" />
+
+              <label for="dueDate">Due date</label>
+              <input id="dueDate" name="dueDate" type="date" />
+
+              <label for="driveUrl">Drive folder URL</label>
+              <input id="driveUrl" name="driveUrl" inputmode="url" />
+
+              <div class="form-actions">
+                <button id="processNext" class="secondary-button" type="button">Process next property</button>
+                <button class="primary-button" type="submit">Generate</button>
+              </div>
+            </form>
+            <div id="validationResults" class="validation-list" aria-live="polite"></div>
+          </article>
+
+          <article class="panel assets-panel" aria-labelledby="assetsTitle">
+            <div class="section-heading">
+              <div>
+                <p class="kicker">Drive</p>
+                <h2 id="assetsTitle">Drive assets</h2>
+              </div>
+              <span id="selectedPhotoBadge" class="count-badge">3 selected</span>
+            </div>
+            <h3>Source Caption Document</h3>
+            <p id="sourceDocName" class="source-doc-name">Source caption document: Bagbag-caption.docx</p>
+            <pre id="captionSourceOutput" class="source-output">Fetch a property to review the extracted DOCX details here.</pre>
+            <div id="imageGallery" class="photo-grid" aria-label="Selectable photos"></div>
+            <a id="zipDownload" class="button-link" href="#" aria-disabled="true">Download All Images</a>
+          </article>
+
+          <article class="panel caption-panel" aria-labelledby="captionTitle">
+            <div class="section-heading">
+              <div>
+                <p class="kicker">Caption</p>
+                <h2 id="captionTitle">Caption workbench</h2>
+              </div>
+              <button id="generateCaption" class="secondary-button" type="button">Generate Caption</button>
+            </div>
+            <div id="captionGuidance" class="rule-check">
+              <h3>APG rule check</h3>
+              <ul>
+                <li>No emojis.</li>
+                <li>Do not use "least term".</li>
+                <li>Do not use "negotiables".</li>
+              </ul>
+            </div>
+            <div id="captionVariants" class="caption-variants"></div>
+            <pre id="captionOutput" class="final-caption">Final caption will appear here after pipeline preparation.</pre>
+            <button id="copyCaption" class="primary-button" type="button">Copy Caption</button>
+          </article>
+
+          <article class="panel publish-panel" aria-labelledby="publishTitle">
+            <div class="section-heading">
+              <div>
+                <p class="kicker">Publish</p>
+                <h2 id="publishTitle">Human-in-the-loop publish</h2>
+              </div>
+              <a
+                id="openFacebook"
+                class="button-link"
+                href="https://www.facebook.com/"
+                target="_blank"
+                rel="noreferrer"
+              >Open Facebook Profile/Alt Account</a>
+            </div>
+            <aside class="workflow-guide" aria-labelledby="workflowTitle">
+              <h3 id="workflowTitle">Workflow Progress Guide</h3>
+              <ol>
+                <li class="workflow-step" data-step="download" data-state="active">
+                  <span class="step-marker" data-number="1" aria-hidden="true">1</span>
+                  <div>
+                    <h4>Step 1: Download Assets</h4>
+                    <p>Save these 3+ images to your local device.</p>
+                  </div>
+                </li>
+                <li class="workflow-step" data-step="copy" data-state="locked">
+                  <span class="step-marker" data-number="2" aria-hidden="true">2</span>
+                  <div>
+                    <h4>Step 2: Copy the Caption</h4>
+                    <p>The AI has automatically stripped emojis and restricted words.</p>
+                  </div>
+                </li>
+                <li class="workflow-step" data-step="facebook" data-state="locked">
+                  <span class="step-marker" data-number="3" aria-hidden="true">3</span>
+                  <div>
+                    <h4>Step 3: Post to Facebook</h4>
+                    <p>Open Facebook Profile/Alt Account and publish manually.</p>
+                  </div>
+                </li>
+                <li class="workflow-step" data-step="url" data-state="locked">
+                  <span class="step-marker" data-number="4" aria-hidden="true">4</span>
+                  <div>
+                    <h4>Step 4: Copy &amp; Paste Live URL</h4>
+                    <p>Paste the final Facebook post URL for tracker logging.</p>
+                  </div>
+                </li>
+                <li class="workflow-step" data-step="log" data-state="locked">
+                  <span class="step-marker" data-number="5" aria-hidden="true">5</span>
+                  <div>
+                    <h4>Step 5: Finalize &amp; Log</h4>
+                    <p>Click to Log Post after the live URL is ready.</p>
+                  </div>
+                </li>
+              </ol>
+            </aside>
+            <form id="logForm" class="checklist-form">
+              <label><input id="checkCaption" type="checkbox" /> Caption approved</label>
+              <label><input id="checkPhotos" type="checkbox" /> 3 photos selected</label>
+              <label><input id="checkManualPost" type="checkbox" /> Manually posted on Facebook</label>
+              <div id="facebookUrlGroup" class="stack" hidden>
+                <label for="facebookUrl">Published Facebook URL</label>
+                <input id="facebookUrl" name="facebookUrl" inputmode="url" placeholder="https://facebook.com/..." />
+              </div>
+              <button id="logPostButton" class="primary-button" type="submit" disabled>Click to Log Post</button>
+            </form>
+          </article>
+
+          <article class="panel tracker-panel" aria-labelledby="trackerTitle">
+            <div class="section-heading">
+              <div>
+                <p class="kicker">Google tracking</p>
+                <h2 id="trackerTitle">Tracker sync preview</h2>
+              </div>
+              <span class="status-badge ready">Ready</span>
+            </div>
+            <label for="trackerRow">Posting tracker row</label>
+            <textarea id="trackerRow" readonly></textarea>
+            <label for="dailyReport">Daily progress report entry</label>
+            <textarea id="dailyReport" readonly></textarea>
+          </article>
+
+          <article class="panel activity-panel" aria-labelledby="activityTitle">
+            <div class="section-heading">
+              <div>
+                <p class="kicker">Audit trail</p>
+                <h2 id="activityTitle">Activity log</h2>
+              </div>
+              <span id="activityCount" class="count-badge">0 events</span>
+            </div>
+            <ol id="activityLog" class="activity-log"></ol>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <template id="jobTemplate">
+      <button class="job-row" type="button">
+        <span class="job-row-top"><strong></strong><em></em></span>
+        <span class="job-row-meta"></span>
+        <span class="job-row-status"></span>
+      </button>
+    </template>
+
+    <template id="imageTemplate">
+      <button class="photo-card" type="button">
+        <span class="photo-preview"></span>
+        <span class="photo-meta"></span>
+      </button>
+    </template>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

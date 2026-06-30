@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>APG Posting Desk - Human-in-the-Loop System Flow</title>
+  <style>
+    :root {
+      --bg: #f4f0e8;
+      --ink: #15241f;
+      --muted: #5f6d66;
+      --panel: #fffaf0;
+      --line: #cfc5b3;
+      --accent: #b7382f;
+      --green: #2e6f4f;
+      --blue: #2d5f9a;
+      --gold: #b9862b;
+      --shadow: 0 20px 60px rgba(21, 36, 31, 0.16);
+      font-family: Georgia, "Times New Roman", serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(21, 36, 31, 0.055) 1px, transparent 1px),
+        linear-gradient(rgba(21, 36, 31, 0.055) 1px, transparent 1px),
+        var(--bg);
+      background-size: 34px 34px;
+      padding: clamp(1rem, 3vw, 3rem);
+    }
+
+    .page {
+      max-width: 1500px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      font: 800 0.78rem/1.2 "Trebuchet MS", sans-serif;
+      letter-spacing: 0.08em;
+      margin: 0 0 0.35rem;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: clamp(2.5rem, 7vw, 5.25rem);
+      font-weight: 400;
+      line-height: 0.95;
+    }
+
+    .version {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 0.7rem 0.9rem;
+      font: 700 0.9rem/1.2 "Trebuchet MS", sans-serif;
+    }
+
+    .diagram {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: 1.05fr 1.35fr 1.05fr;
+      align-items: start;
+    }
+
+    .lane {
+      display: grid;
+      gap: 0.85rem;
+    }
+
+    .lane-title {
+      font: 800 0.95rem/1.2 "Trebuchet MS", sans-serif;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .node,
+    .checkpoint,
+    .data-store {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      padding: 1rem;
+      position: relative;
+    }
+
+    .node::before,
+    .checkpoint::before,
+    .data-store::before {
+      content: attr(data-index);
+      align-items: center;
+      background: var(--ink);
+      color: #fffaf0;
+      display: inline-flex;
+      font: 900 0.85rem/1 "Trebuchet MS", sans-serif;
+      height: 1.8rem;
+      justify-content: center;
+      margin-bottom: 0.75rem;
+      width: 1.8rem;
+    }
+
+    .node h2,
+    .checkpoint h2,
+    .data-store h2 {
+      font-size: 1.25rem;
+      line-height: 1.1;
+      margin-bottom: 0.45rem;
+    }
+
+    .node p,
+    .checkpoint p,
+    .data-store p,
+    li {
+      color: var(--muted);
+      font: 0.95rem/1.45 "Trebuchet MS", sans-serif;
+    }
+
+    .node strong,
+    .checkpoint strong,
+    .data-store strong {
+      color: var(--ink);
+    }
+
+    .auth {
+      border-color: var(--blue);
+      box-shadow: inset 5px 0 0 var(--blue), var(--shadow);
+    }
+
+    .queue {
+      border-color: var(--gold);
+      box-shadow: inset 5px 0 0 var(--gold), var(--shadow);
+    }
+
+    .ai {
+      border-color: var(--green);
+      box-shadow: inset 5px 0 0 var(--green), var(--shadow);
+    }
+
+    .checkpoint {
+      border-color: var(--accent);
+      box-shadow: inset 5px 0 0 var(--accent), var(--shadow);
+    }
+
+    .data-store {
+      background: #eef7ef;
+      border-color: var(--green);
+    }
+
+    .flow {
+      display: grid;
+      gap: 0.65rem;
+    }
+
+    .arrow {
+      color: var(--accent);
+      font: 900 1.45rem/1 "Trebuchet MS", sans-serif;
+      text-align: center;
+    }
+
+    .manual-list,
+    .tech-list {
+      padding-left: 1.1rem;
+      margin: 0.65rem 0 0;
+    }
+
+    .callout {
+      margin-top: 1rem;
+      display: grid;
+      gap: 0.75rem;
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .callout > div {
+      background: #fffdf8;
+      border: 1px solid var(--line);
+      padding: 0.85rem;
+    }
+
+    .callout h3 {
+      font: 800 0.9rem/1.2 "Trebuchet MS", sans-serif;
+      margin-bottom: 0.35rem;
+    }
+
+    .footer {
+      margin-top: 1rem;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 1rem;
+      font: 0.95rem/1.45 "Trebuchet MS", sans-serif;
+      color: var(--muted);
+    }
+
+    @media (max-width: 1100px) {
+      .diagram,
+      .callout {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        align-items: start;
+        flex-direction: column;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .node,
+      .checkpoint,
+      .data-store,
+      .version,
+      .footer {
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div>
+        <p class="eyebrow">Alpha Premiere Group</p>
+        <h1>Posting Desk System Flow</h1>
+      </div>
+      <div class="version">Human-in-the-loop PWA • Firebase • MCP • NVIDIA NIM</div>
+    </header>
+
+    <section class="diagram" aria-label="APG Posting Desk architecture">
+      <div class="lane">
+        <p class="lane-title">Operator + Frontend</p>
+
+        <article class="node auth" data-index="A">
+          <h2>Firebase Google Sign-In</h2>
+          <p>Operator signs in from the <strong>Vite PWA dashboard</strong>. The Firebase Google provider uses the hosted-domain parameter so only APG Workspace accounts should enter live mode.</p>
+        </article>
+
+        <div class="arrow">↓</div>
+
+        <article class="node queue" data-index="B">
+          <h2>Process Next Property</h2>
+          <p>The dashboard can pull the next assignment from <strong>Firestore property_queue</strong>, so interns do not need to type every property name manually.</p>
+        </article>
+
+        <div class="arrow">↓</div>
+
+        <article class="checkpoint" data-index="C">
+          <h2>Workflow Progress Guide</h2>
+          <p>The UI locks steps in order:</p>
+          <ol class="manual-list">
+            <li>Download All Images</li>
+            <li>Copy Caption</li>
+            <li>Open Facebook Profile/Alt Account</li>
+            <li>Paste live Facebook URL</li>
+            <li>Click to Log Post</li>
+          </ol>
+        </article>
+      </div>
+
+      <div class="lane">
+        <p class="lane-title">Backend Orchestration</p>
+
+        <div class="flow">
+          <article class="node auth" data-index="1">
+            <h2>FastAPI Auth Middleware</h2>
+            <p>The frontend sends <strong>Authorization: Bearer Firebase ID token</strong>. Firebase Admin verifies it before live prepare, queue, or log routes run.</p>
+          </article>
+
+          <div class="arrow">↓</div>
+
+          <article class="node" data-index="2">
+            <h2>Route A: Prepare Assets</h2>
+            <p><strong>POST /api/prepare</strong> receives a property name, then coordinates Google Workspace MCP and NVIDIA NIM.</p>
+          </article>
+
+          <div class="arrow">↓</div>
+
+          <article class="node" data-index="3">
+            <h2>google-docs-mcp Fetch Phase</h2>
+            <p>Drive MCP tools locate the APG Listing Drive folder and fetch content:</p>
+            <ul class="tech-list">
+              <li><strong>search_files</strong> finds the property folder and files.</li>
+              <li><strong>download_file_content</strong> retrieves 3+ images.</li>
+              <li><strong>readDocument</strong> extracts caption deets text.</li>
+            </ul>
+          </article>
+
+          <div class="arrow">↓</div>
+
+          <article class="node ai" data-index="4">
+            <h2>NVIDIA NIM Caption Generation</h2>
+            <p>The backend uses the standard OpenAI client pointed at <strong>https://integrate.api.nvidia.com/v1</strong> with <strong>stepfun-ai/step-3.7-flash</strong>.</p>
+            <p>Prompt rules: no emojis, no "least term", no "negotiables".</p>
+          </article>
+
+          <div class="arrow">↓</div>
+
+          <article class="checkpoint" data-index="5">
+            <h2>Human Checkpoint</h2>
+            <p>The PWA displays generated caption, images, zip download, and manual instructions. The operator posts through Facebook Web. The system does not use Facebook Graph API.</p>
+          </article>
+
+          <div class="arrow">↓</div>
+
+          <article class="node" data-index="6">
+            <h2>Route B: Log Manual Post</h2>
+            <p><strong>POST /api/log</strong> accepts the live Facebook URL pasted by the operator.</p>
+          </article>
+        </div>
+      </div>
+
+      <div class="lane">
+        <p class="lane-title">External Systems + Data</p>
+
+        <article class="data-store" data-index="D1">
+          <h2>Firebase Auth</h2>
+          <p>Google provider login, APG hosted-domain restriction, and Firebase Admin token verification.</p>
+        </article>
+
+        <article class="data-store" data-index="D2">
+          <h2>Firestore Queue</h2>
+          <p><strong>property_queue</strong> stores Ma'am Jean's assigned properties with pending, processing, and completed states.</p>
+        </article>
+
+        <article class="data-store" data-index="D3">
+          <h2>APG Listing Drive</h2>
+          <p>Property folders contain images and caption deets documents accessed through google-docs-mcp tools.</p>
+        </article>
+
+        <article class="data-store" data-index="D4">
+          <h2>Facebook Web</h2>
+          <p>Operator manually creates the post using downloaded assets and copied caption, then returns the live URL.</p>
+        </article>
+
+        <article class="data-store" data-index="D5">
+          <h2>Posting Tracker + Daily Report</h2>
+          <p>google-docs-mcp logging phase uses <strong>appendRows</strong> for Sheets and <strong>appendText</strong> for Docs.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="callout" aria-label="Route summary">
+      <div>
+        <h3>Frontend</h3>
+        <p>Vite PWA, Firebase JS SDK, installable manifest, service worker, and gated workflow checklist for interns/operators.</p>
+      </div>
+      <div>
+        <h3>Backend</h3>
+        <p>FastAPI service with Firebase Admin auth, Firestore queue claims, review pipeline, and NIM caption generation.</p>
+      </div>
+      <div>
+        <h3>Workspace MCP</h3>
+        <p>a-bonus/google-docs-mcp handles Drive, Docs, and Sheets operations instead of custom Google API wrappers.</p>
+      </div>
+    </section>
+
+    <p class="footer">
+      Current design is semi-automated by intent: the system prepares assets and logs results, while the operator performs the actual Facebook publish step.
+    </p>
+  </main>
+</body>
+</html>

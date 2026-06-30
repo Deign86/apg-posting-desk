@@ -1,0 +1,220 @@
+:root {
+  --bg: #f4f0e8;
+  --ink: #15241f;
+  --muted: #66746d;
+  --panel: #fffaf0;
+  --line: #cfc5b3;
+  --accent: #b7382f;
+  --accent-ink: #fff9ef;
+  --focus: #245dff;
+  --shadow: 0 18px 50px rgba(21, 36, 31, 0.14);
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  background:
+    linear-gradient(90deg, rgba(21, 36, 31, 0.05) 1px, transparent 1px),
+    linear-gradient(rgba(21, 36, 31, 0.05) 1px, transparent 1px),
+    var(--bg);
+  background-size: 32px 32px;
+}
+
+button,
+input,
+a {
+  font: inherit;
+}
+
+button,
+.button-link {
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--accent-ink);
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+button:disabled,
+.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+button:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.shell-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 2rem clamp(1rem, 4vw, 4rem) 1rem;
+}
+
+.eyebrow {
+  color: var(--accent);
+  font: 700 0.78rem/1.2 "Trebuchet MS", sans-serif;
+  letter-spacing: 0.08em;
+  margin: 0 0 0.35rem;
+  text-transform: uppercase;
+}
+
+h1,
+h2 {
+  line-height: 1;
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(2.4rem, 7vw, 5.5rem);
+  font-weight: 400;
+}
+
+h2 {
+  font-size: 1.35rem;
+}
+
+.status-pill {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  padding: 0.6rem 0.8rem;
+  font-family: "Trebuchet MS", sans-serif;
+}
+
+.workspace {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(17rem, 24rem) 1fr;
+  padding: 1rem clamp(1rem, 4vw, 4rem) 3rem;
+}
+
+.control-panel,
+.caption-panel,
+.assets-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  padding: 1rem;
+}
+
+.control-panel {
+  align-self: start;
+  position: sticky;
+  top: 1rem;
+}
+
+.stack {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 1.2rem;
+}
+
+label {
+  font-family: "Trebuchet MS", sans-serif;
+  font-weight: 700;
+}
+
+input {
+  width: 100%;
+  border: 1px solid var(--line);
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  background: #fffdf8;
+  color: var(--ink);
+}
+
+.inline-controls {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.review-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(18rem, 0.85fr) minmax(20rem, 1.15fr);
+}
+
+.panel-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+pre {
+  white-space: pre-wrap;
+  margin: 0;
+  min-height: 24rem;
+  line-height: 1.55;
+  font-size: 1rem;
+}
+
+.image-gallery {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+}
+
+figure {
+  border: 1px solid var(--line);
+  margin: 0;
+  background: #fffdf8;
+}
+
+img {
+  aspect-ratio: 4 / 3;
+  display: block;
+  height: auto;
+  object-fit: cover;
+  width: 100%;
+}
+
+figcaption {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+  padding: 0.55rem;
+  font-family: "Trebuchet MS", sans-serif;
+  font-size: 0.9rem;
+}
+
+figcaption a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .workspace,
+  .review-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .control-panel {
+    position: static;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}

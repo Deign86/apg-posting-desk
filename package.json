@@ -1,0 +1,22 @@
+{
+  "name": "apg-posting-desk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n api,web \"python -m apg_automation.main --serve --demo --host 0.0.0.0 --port 8000\" \"vite --host 0.0.0.0\"",
+    "dev:live": "concurrently -k -n api,web \"python -m apg_automation.main --serve --host 0.0.0.0 --port 8000\" \"vite --host 0.0.0.0\"",
+    "dev:api": "python -m apg_automation.main --serve --demo --host 0.0.0.0 --port 8000",
+    "dev:web": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "@vitejs/plugin-basic-ssl": "^2.0.0",
+    "firebase": "^12.0.0",
+    "vite": "^7.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

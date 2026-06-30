@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#15241f" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="stylesheet" href="/styles.css" />
+    <title>APG Posting Desk</title>
+  </head>
+  <body>
+    <header class="shell-header">
+      <div>
+        <p class="eyebrow">Alpha Premiere Group</p>
+        <h1>Posting Desk</h1>
+      </div>
+      <span id="connectionStatus" class="status-pill">Ready</span>
+    </header>
+
+    <main class="workspace">
+      <section class="control-panel" aria-labelledby="prepareTitle">
+        <h2 id="prepareTitle">Prepare Listing</h2>
+        <form id="prepareForm" class="stack">
+          <label for="propertyName">Property name</label>
+          <div class="inline-controls">
+            <input
+              id="propertyName"
+              name="propertyName"
+              autocomplete="off"
+              placeholder="Novaliches, 440 Bagbag"
+              required
+            />
+            <button type="submit">Generate</button>
+          </div>
+        </form>
+
+        <form id="logForm" class="stack" hidden>
+          <label for="facebookUrl">Published Facebook URL</label>
+          <div class="inline-controls">
+            <input
+              id="facebookUrl"
+              name="facebookUrl"
+              inputmode="url"
+              placeholder="https://facebook.com/..."
+              required
+            />
+            <button type="submit">Log Post</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="review-grid" aria-live="polite">
+        <article class="caption-panel">
+          <div class="panel-heading">
+            <h2>Caption</h2>
+            <button id="copyCaption" type="button" disabled>Copy Caption</button>
+          </div>
+          <pre id="captionOutput">Generate a property to review the caption here.</pre>
+        </article>
+
+        <article class="assets-panel">
+          <div class="panel-heading">
+            <h2>Images</h2>
+            <a id="zipDownload" class="button-link disabled" aria-disabled="true">Download Zip</a>
+          </div>
+          <div id="imageGallery" class="image-gallery"></div>
+        </article>
+      </section>
+    </main>
+
+    <template id="imageTemplate">
+      <figure>
+        <img alt="" />
+        <figcaption>
+          <span></span>
+          <a download>Download</a>
+        </figcaption>
+      </figure>
+    </template>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

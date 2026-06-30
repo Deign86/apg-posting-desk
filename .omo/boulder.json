@@ -1,0 +1,14 @@
+﻿{
+  "schema_version": 2,
+  "active_work_id": "apg-firebase-console",
+  "works": {
+    "apg-firebase-console": {
+      "work_id": "apg-firebase-console",
+      "active_plan": ".omo/plans/apg-firebase-console.md",
+      "plan_name": "apg-firebase-console",
+      "session_ids": ["codex:current"],
+      "status": "active",
+      "worktree_path": null
+    }
+  }
+}
