@@ -106,3 +106,58 @@ def test_frontend_source_declares_role_and_job_api_contracts():
     assert 'authFetch(`/api/jobs/${jobId}/captions`' in source
     assert 'authFetch(`/api/jobs/${jobId}/mark-posted`' in source
     assert 'authFetch(`/api/jobs/${jobId}/activity`' in source
+
+
+def test_auth_card_contains_role_selector():
+    html = (Path("index.html")).read_text(encoding="utf-8")
+    assert "role-selector" in html, "Auth card must contain the role selector container"
+    assert "data-role-option" in html, "Auth card must contain role option buttons with data-role-option attribute"
+    assert 'data-role="user"' in html, "Must offer the 'user' role option"
+    assert 'data-role="admin"' in html, "Must offer the 'admin' role option"
+
+
+def test_auth_card_role_selector_hidden_when_authenticated():
+    html = (Path("index.html")).read_text(encoding="utf-8")
+    # Role selector must have id="role-selector" for JS toggling
+    assert 'id="role-selector"' in html, "Role selector must have id='role-selector'"
+
+
+def test_styles_include_role_selector_rules():
+    css = (Path("src/styles.css")).read_text(encoding="utf-8")
+    assert ".role-selector" in css, "styles.css must contain .role-selector rule"
+    assert ".role-option" in css, "styles.css must contain .role-option rule"
+
+
+def test_admin_buttons_marked_data_admin_only():
+    html = Path("index.html").read_text(encoding="utf-8")
+    assert 'id="newJobBtn"' in html and "data-admin-only" in html, \
+        "newJobBtn must have data-admin-only attribute"
+    assert 'id="processNext"' in html and "data-admin-only" in html, \
+        "processNext must have data-admin-only attribute"
+
+
+def test_auth_fetch_sends_x_demo_role_header():
+    source = Path("src/main.js").read_text(encoding="utf-8")
+    assert "X-Demo-Role" in source, "authFetch must send X-Demo-Role header"
+    assert "selectedRole" in source, "main.js must track selectedRole from role selector"
+
+
+def test_apply_role_gating_function_exists():
+    source = Path("src/main.js").read_text(encoding="utf-8")
+    assert "applyRoleGating" in source, "main.js must define applyRoleGating function"
+    assert 'data-admin-only' in source, "applyRoleGating must toggle [data-admin-only] elements"
+
+
+def test_role_selector_click_handlers_exist():
+    source = Path("src/main.js").read_text(encoding="utf-8")
+    assert "data-role-option" in source, "main.js must bind click handlers to [data-role-option] buttons"
+    assert "selectedRole = btn.dataset.role" in source, \
+        "Click handler must update selectedRole from button dataset"
+
+
+def test_role_selector_hidden_on_auth():
+    source = Path("src/main.js").read_text(encoding="utf-8")
+    assert "role-selector" in source and "hidden" in source, \
+        "main.js must hide role-selector when user signs in"
+    assert "signOut" in source and "role-selector" in source, \
+        "main.js must show role-selector on sign out"
