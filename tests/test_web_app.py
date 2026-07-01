@@ -45,7 +45,7 @@ class FakeTracker:
         self.records.append((property_name, post_url, posted_at))
 
 
-def build_client(tmp_path):
+def build_client(tmp_path, demo_role="admin"):
     for index in range(1, 4):
         (tmp_path / f"{index}.jpg").write_bytes(b"image")
     (tmp_path / "caption.txt").write_text("Three-bedroom home near schools.", encoding="utf-8")
@@ -56,7 +56,10 @@ def build_client(tmp_path):
         tracker=tracker,
         download_root=tmp_path / "prepared",
     )
-    return TestClient(app), tracker
+    headers = {}
+    if demo_role is not None:
+        headers["X-Demo-Role"] = demo_role
+    return TestClient(app, headers=headers), tracker
 
 
 def test_prepare_route_returns_caption_and_asset_urls(tmp_path):
@@ -93,8 +96,8 @@ def test_log_route_records_human_supplied_facebook_url(tmp_path):
     )
 
 
-def test_session_route_returns_demo_role_profile_and_firebase_project(tmp_path):
-    client, _ = build_client(tmp_path)
+def test_session_returns_admin_role_with_demo_header(tmp_path):
+    client, _ = build_client(tmp_path, demo_role="admin")
 
     response = client.get("/api/session")
 
@@ -287,3 +290,64 @@ def test_activity_route_returns_404_for_missing_job(tmp_path):
     client, _ = build_client(tmp_path)
     resp = client.get("/api/jobs/NONEXIST/activity")
     assert resp.status_code == 404
+
+
+def test_session_returns_user_role_without_demo_header(tmp_path):
+    client, _ = build_client(tmp_path, demo_role=None)
+    response = client.get("/api/session")
+    assert response.status_code == 200
+    assert response.json()["user"]["role"] == "user"
+    assert response.json()["user"]["display_name"] == "Demo User"
+
+
+def test_create_job_returns_403_for_user_role(tmp_path):
+    client, _ = build_client(tmp_path, demo_role="user")
+    response = client.post("/api/jobs", json={
+        "property_name": "Test",
+        "assigned_by": "A",
+        "operator": "B",
+        "due_date": "2026-07-01",
+        "drive_url": "x",
+    })
+    assert response.status_code == 403
+
+
+def test_create_job_returns_201_for_admin_role(tmp_path):
+    client, _ = build_client(tmp_path, demo_role="admin")
+    response = client.post("/api/jobs", json={
+        "property_name": "Test",
+        "assigned_by": "A",
+        "operator": "B",
+        "due_date": "2026-07-01",
+        "drive_url": "x",
+    })
+    assert response.status_code == 201
+
+
+def test_create_job_returns_201_for_maam_jean_role(tmp_path):
+    client, _ = build_client(tmp_path, demo_role="maam_jean")
+    response = client.post("/api/jobs", json={
+        "property_name": "Test",
+        "assigned_by": "A",
+        "operator": "B",
+        "due_date": "2026-07-01",
+        "drive_url": "x",
+    })
+    assert response.status_code == 201
+
+
+def test_queue_next_returns_403_for_user_role(tmp_path):
+    client, _ = build_client(tmp_path, demo_role="user")
+    response = client.post("/api/queue/next")
+    assert response.status_code == 403
+
+
+def test_user_role_can_access_non_admin_endpoints(tmp_path):
+    client, _ = build_client(tmp_path, demo_role="user")
+    assert client.get("/api/session").status_code == 200
+    assert client.get("/api/jobs").status_code == 200
+    assert client.post("/api/prepare", json={"property_name": "Sample Property"}).status_code == 200
+    assert client.post("/api/log", json={
+        "property_name": "Sample Property",
+        "facebook_url": "https://facebook.com/test",
+    }).status_code == 200

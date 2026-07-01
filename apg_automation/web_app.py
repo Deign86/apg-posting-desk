@@ -5,12 +5,12 @@ import uuid
 import zipfile
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .firebase_auth import FirebaseTokenVerifier, require_firebase_user
+from .firebase_auth import FirebaseTokenVerifier, require_firebase_user, require_role
 from .job_store import InMemoryJobStore
 from .review_pipeline import PreparedPost, ReviewPipeline
 
@@ -69,16 +69,29 @@ def create_app(
     )
     preparations: dict[str, PreparedPost] = {}
     jobs = job_store if job_store is not None else InMemoryJobStore()
+    _demo_display_names = {
+        "admin": "Demo Admin",
+        "maam_jean": "Demo Ma'am Jean",
+        "user": "Demo User",
+    }
+
+    def _demo_user(
+        x_demo_role: str | None = Header(default=None, alias="X-Demo-Role"),
+    ) -> dict:
+        role = x_demo_role if x_demo_role in ("admin", "maam_jean", "user") else "user"
+        return {
+            "uid": "demo",
+            "email": "demo@apg.local",
+            "role": role,
+            "display_name": _demo_display_names.get(role, "Demo User"),
+        }
+
     user_dependency = (
         require_firebase_user(auth_verifier)
         if auth_required and auth_verifier is not None
-        else lambda: {
-            "uid": "demo",
-            "email": "demo@apg.local",
-            "role": "admin",
-            "display_name": "Demo Admin",
-        }
+        else _demo_user
     )
+    admin_dependency = require_role("admin", "maam_jean", user_dependency=user_dependency)
 
     @app.get("/api/session")
     def session(user=Depends(user_dependency)) -> dict:
@@ -153,7 +166,7 @@ def create_app(
         return {"jobs": jobs.list_jobs(), "counts": jobs.counts()}
 
     @app.post("/api/jobs", status_code=201)
-    def create_job(request: JobIntakeRequest, user=Depends(user_dependency)) -> dict:
+    def create_job(request: JobIntakeRequest, user=Depends(admin_dependency)) -> dict:
         return jobs.create(
             property_name=request.property_name.strip(),
             assigned_by=request.assigned_by.strip(),
@@ -248,7 +261,7 @@ def create_app(
         return {"activity": jobs.get_activity(job_id)}
 
     @app.post("/api/queue/next")
-    def next_property(user=Depends(user_dependency)) -> dict:
+    def next_property(user=Depends(admin_dependency)) -> dict:
         if queue is None:
             raise HTTPException(status_code=404, detail="Queue is not configured")
         item = queue.claim_next(operator_uid=user["uid"])
