@@ -27,9 +27,10 @@ if (shouldRestrictDomain) {
 }
 
 let currentUser = null;
+let selectedRole = (doc.querySelector(".role-option.active") || {}).dataset?.role || "user";
 let session = {
   firebase_project_id: firebaseConfig.projectId || "demo",
-  user: { uid: "demo-maam-jean", email: "demo@apg.local", role: "maam_jean", display_name: "Ma'am Jean" },
+  user: { uid: "demo-operator", email: "demo@apg.local", role: selectedRole, display_name: "Demo operator" },
 };
 
 const demoJobs = [
@@ -447,6 +448,7 @@ function renderSession() {
   refs.roleBadge.textContent = role;
   refs.userLabel.textContent = `${name} · ${roleCopy(role)} · ${session.firebase_project_id || "demo"}`;
   refs.sessionTitle.textContent = "Role access";
+  applyRoleGating();
 }
 
 function roleCopy(role) {
@@ -499,6 +501,7 @@ async function authFetch(url, options = {}) {
     const token = await currentUser.getIdToken();
     headers.set("Authorization", `Bearer ${token}`);
   }
+  headers.set("X-Demo-Role", selectedRole);
   return fetch(url, { ...options, headers });
 }
 
@@ -610,6 +613,9 @@ if (auth) {
     currentUser = user;
     refs.signInButton.hidden = Boolean(user);
     refs.signOutButton.hidden = !user;
+    const roleSelector = doc.getElementById("role-selector");
+    if (roleSelector) roleSelector.hidden = Boolean(user);
+    if (user) applyRoleGating();
     await loadSession();
     await loadJobs();
   });
@@ -629,6 +635,8 @@ refs.signOutButton.addEventListener("click", async () => {
   if (auth) {
     await signOut(auth);
   }
+  const roleSelector = doc.getElementById("role-selector");
+  if (roleSelector) roleSelector.hidden = false;
 });
 
 el("themeToggle").addEventListener("click", () => {
@@ -637,6 +645,28 @@ el("themeToggle").addEventListener("click", () => {
   root.setAttribute("data-theme", nextTheme);
   localStorage.setItem("apg-theme", nextTheme);
 });
+
+doc.querySelectorAll("[data-role-option]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    doc.querySelectorAll("[data-role-option]").forEach((b) => {
+      b.classList.remove("active");
+      b.setAttribute("aria-pressed", "false");
+    });
+    btn.classList.add("active");
+    btn.setAttribute("aria-pressed", "true");
+    selectedRole = btn.dataset.role || "user";
+    session.user.role = selectedRole;
+    renderSession();
+    applyRoleGating();
+  });
+});
+
+function applyRoleGating() {
+  const isAdmin = selectedRole === "admin";
+  doc.querySelectorAll("[data-admin-only]").forEach((el) => {
+    el.hidden = !isAdmin;
+  });
+}
 
 doc.querySelectorAll(".nav-btn").forEach((button) => {
   button.addEventListener("click", () => {

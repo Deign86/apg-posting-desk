@@ -41,6 +41,10 @@
             <span id="roleBadge" class="badge">user</span>
           </div>
           <p id="userLabel" class="helper" style="margin-top:.5rem;">Demo mode: Ma'am Jean queue visibility enabled.</p>
+          <div id="role-selector" class="role-selector" aria-label="Account type">
+            <button type="button" class="role-option active" data-role-option data-role="user" aria-pressed="true">User</button>
+            <button type="button" class="role-option" data-role-option data-role="admin" aria-pressed="false">Admin</button>
+          </div>
           <div class="toolbar" style="margin-top:.75rem;">
             <button id="signInButton" class="mini-btn" type="button">Sign in</button>
             <button id="signOutButton" class="mini-btn" type="button" hidden>Sign out</button>
@@ -72,7 +76,7 @@
             <p class="muted">Drive validation, caption generation, human-reviewed Facebook posting, then tracker update prep.</p>
           </div>
           <div class="actions">
-            <button class="btn" id="newJobBtn" type="button">New intake</button>
+            <button class="btn" id="newJobBtn" type="button" data-admin-only>New intake</button>
             <button class="btn btn-primary" id="simulatePipelineBtn" type="button">Run pipeline</button>
           </div>
         </section>
@@ -118,7 +122,7 @@
                 </div>
                 <div class="toolbar">
                   <button class="mini-btn" id="validateAssetsBtn" type="button">Validate assets</button>
-                  <button class="mini-btn" id="processNext" type="button">Process next property</button>
+                  <button class="mini-btn" id="processNext" type="button" data-admin-only>Process next property</button>
                   <button class="mini-btn" id="seedGoodDataBtn" type="button">Load clean sample</button>
                   <button class="mini-btn" id="seedBadDataBtn" type="button">Load broken sample</button>
                 </div>
