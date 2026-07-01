@@ -33,65 +33,8 @@ let session = {
   user: { uid: "demo-operator", email: "demo@apg.local", role: selectedRole, display_name: "Demo operator" },
 };
 
-const demoJobs = [
-  {
-    id: "APG-2401",
-    propertyName: "Novaliches, 440 Bagbag",
-    assignedBy: "Ma'am Jean",
-    operator: "Deign",
-    dueDate: "2026-06-30",
-    driveUrl: "https://drive.google.com/demo/bagbag",
-    imageCount: 4,
-    hasCaptionDoc: true,
-    docName: "Bagbag-caption.docx",
-    status: "ready-to-post",
-    trackerStatus: "pending",
-    details: "Townhouse for sale in Novaliches with clean title, near transport, schools, and daily essentials.",
-    images: [
-      { id: "img1", label: "front-view.jpg", selected: true },
-      { id: "img2", label: "living-area.jpg", selected: true },
-      { id: "img3", label: "kitchen.jpg", selected: true },
-      { id: "img4", label: "street-access.jpg", selected: false },
-    ],
-    variants: [
-      "Ready for posting: Novaliches, 440 Bagbag with practical access to transport, schools, and essentials. Message APG for viewing details.",
-      "APG listing prepared for Novaliches, 440 Bagbag. Review the photos, confirm details, and coordinate viewing through the assigned operator.",
-      "For Facebook posting: Novaliches, 440 Bagbag. Clean property details, selected photos, and tracker preview are ready for manual publishing.",
-    ],
-    finalCaption: "Novaliches, 440 Bagbag is ready for viewing. This property offers practical access to transport, schools, and daily essentials. Message APG for details and schedule coordination.",
-    facebookLink: "",
-    activity: [
-      { at: "09:18", text: "Ma'am Jean assigned APG-2401 to Deign." },
-      { at: "09:24", text: "Drive validation passed with 4 images and 1 caption doc." },
-      { at: "09:32", text: "Caption variants generated with APG rule check." },
-    ],
-  },
-  {
-    id: "APG-2402",
-    propertyName: "Fairview, Dahlia Avenue",
-    assignedBy: "Admin",
-    operator: "Rhea",
-    dueDate: "2026-06-30",
-    driveUrl: "https://drive.google.com/demo/fairview",
-    imageCount: 2,
-    hasCaptionDoc: true,
-    docName: "Fairview-caption.docx",
-    status: "missing-assets",
-    trackerStatus: "blocked",
-    details: "Condo unit near Commonwealth corridor. Needs price confirmation before posting.",
-    images: [
-      { id: "img1", label: "unit-main.jpg", selected: true },
-      { id: "img2", label: "amenity.jpg", selected: false },
-    ],
-    variants: [],
-    finalCaption: "",
-    facebookLink: "",
-    activity: [{ at: "10:05", text: "Validation flagged missing third selected photo." }],
-  },
-];
-
-let jobs = [...demoJobs];
-let activeJobId = jobs[0].id;
+let jobs = [];
+let activeJobId = null;
 
 const refs = {
   jobList: el("jobList"),
@@ -157,7 +100,8 @@ if ("serviceWorker" in navigator) {
 }
 
 function activeJob() {
-  return jobs.find((j) => j.id === activeJobId) || jobs[0];
+  const found = jobs.find((j) => j.id === activeJobId);
+  return found || jobs[0] || null;
 }
 
 function log(message) {
@@ -234,26 +178,30 @@ function normalizeVariants(data) {
 
 function renderJobList() {
   refs.jobList.innerHTML = "";
-  jobs.forEach((job) => {
-    const [label, cls] = statusBadge(job.status);
-    const btn = doc.createElement("button");
-    btn.className = "job-row" + (job.id === activeJobId ? " active" : "");
-    btn.type = "button";
-    btn.innerHTML = `
-      <div class="row-top"><strong>${job.propertyName}</strong><span class="badge ${cls}">${label}</span></div>
-      <div class="muted">${job.id}</div>
-      <div class="inline faint mono"><span>${job.assignedBy}</span><span>${job.dueDate}</span></div>
-    `;
-    btn.addEventListener("click", () => {
-      activeJobId = job.id;
-      resetWorkflowState();
-      hydrateForm();
-      renderAll();
-      loadActivity(job.id);
-      log("Switched to " + job.propertyName);
+  if (jobs.length === 0) {
+    refs.jobList.innerHTML = `<div class="muted" style="padding:.5rem;">No properties queued. Create a new intake or process the next property from the queue.</div>`;
+  } else {
+    jobs.forEach((job) => {
+      const [label, cls] = statusBadge(job.status);
+      const btn = doc.createElement("button");
+      btn.className = "job-row" + (job.id === activeJobId ? " active" : "");
+      btn.type = "button";
+      btn.innerHTML = `
+        <div class="row-top"><strong>${job.propertyName}</strong><span class="badge ${cls}">${label}</span></div>
+        <div class="muted">${job.id}</div>
+        <div class="inline faint mono"><span>${job.assignedBy}</span><span>${job.dueDate}</span></div>
+      `;
+      btn.addEventListener("click", () => {
+        activeJobId = job.id;
+        resetWorkflowState();
+        hydrateForm();
+        renderAll();
+        loadActivity(job.id);
+        log("Switched to " + job.propertyName);
+      });
+      refs.jobList.appendChild(btn);
     });
-    refs.jobList.appendChild(btn);
-  });
+  }
   refs.assignedCount.textContent = jobs.length;
   refs.approvalCount.textContent = jobs.filter((j) => j.status === "ready-for-review" || j.status === "waiting-approval").length;
   refs.readyCount.textContent = jobs.filter((j) => j.status === "ready-to-post").length;
@@ -262,6 +210,25 @@ function renderJobList() {
 
 function hydrateForm() {
   const job = activeJob();
+  if (!job) {
+    refs.propertyName.value = "";
+    refs.assignedBy.value = "";
+    refs.operatorName.value = "";
+    refs.dueDate.value = "";
+    refs.driveUrl.value = "";
+    refs.captionDetails.value = "";
+    refs.finalCaption.value = "";
+    refs.facebookLink.value = "";
+    refs.checkCaptionApproved.checked = false;
+    refs.checkPhotosSelected.checked = false;
+    refs.checkPostedToFacebook.checked = false;
+    refs.sourceDocName.textContent = "No document loaded";
+    refs.captionSourceOutput.textContent = "Select a property to review extracted details here.";
+    refs.zipDownload.href = "#";
+    refs.zipDownload.setAttribute("aria-disabled", "true");
+    workflowState.generatedCaption = false;
+    return;
+  }
   refs.propertyName.value = job.propertyName;
   refs.assignedBy.value = job.assignedBy;
   refs.operatorName.value = job.operator;
@@ -533,13 +500,14 @@ async function loadSession() {
 async function loadJobs() {
   const response = await jsonFromResponse(await authFetch("/api/jobs"));
   if (response.ok && Array.isArray(response.data.jobs)) {
-    jobs = response.data.jobs.map((job) => ({ ...demoJobs[0], ...normalizeJob(job) }));
+    jobs = response.data.jobs.map((job) => normalizeJob(job));
   }
-  if (!jobs.some((job) => job.id === activeJobId)) {
+  if (jobs.length > 0 && !jobs.some((job) => job.id === activeJobId)) {
     activeJobId = jobs[0].id;
   }
+  if (!jobs.length) activeJobId = null;
   renderAll();
-  setStatus(response.ok ? "Live queue loaded" : "Demo queue loaded");
+  setStatus(response.ok ? "Queue loaded" : "Queue unavailable");
 }
 
 async function loadActivity(jobId) {
@@ -806,59 +774,28 @@ el("clearLogBtn").addEventListener("click", () => {
   toast("Activity log cleared.");
 });
 
-el("simulatePipelineBtn").addEventListener("click", () => {
+el("simulatePipelineBtn").addEventListener("click", async () => {
   const job = activeJob();
-  job.hasCaptionDoc = true;
-  if (job.images.length < 3) {
-    job.images.push({ id: "extra1", label: "Auto-added sample angle", selected: true });
+  setStatus("Running pipeline");
+  const jobId = job.id;
+  const prepared = await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/prepare`, { method: "POST" }));
+  if (prepared.ok) {
+    Object.assign(job, normalizeJob(prepared.data));
+    if (!job.variants.length) {
+      job.variants = buildVariants(job.details || refs.captionDetails.value || "Property details pending");
+    }
+    if (!job.finalCaption && job.variants.length) {
+      job.finalCaption = job.variants[0];
+    }
+  } else {
+    toast(prepared.data?.detail || "Pipeline failed. Check property details and try again.");
   }
-  job.imageCount = job.images.length;
-  if (!job.variants.length) job.variants = buildVariants(job.details || refs.captionDetails.value || "Property details pending");
-  if (!job.finalCaption) job.finalCaption = job.variants[0];
-  workflowState.prepared = true;
-  workflowState.generatedCaption = true;
+  workflowState.prepared = Boolean(prepared.ok);
+  workflowState.generatedCaption = Boolean(job.finalCaption || job.variants.length);
   hydrateForm();
   renderAll();
-  refs.captionRuleResult.textContent = "Pipeline simulation completed. Review the generated caption and selected images.";
-  log("Simulated the automation pipeline");
-  toast("Pipeline simulation complete.");
-});
-
-el("seedGoodDataBtn").addEventListener("click", () => {
-  const job = activeJob();
-  job.imageCount = 4;
-  job.hasCaptionDoc = true;
-  job.docName = "Clean-sample-caption.txt";
-  if (job.images.length < 4) {
-    job.images = [
-      { id: "img1", label: "Main facade", selected: true },
-      { id: "img2", label: "Interior shot", selected: true },
-      { id: "img3", label: "Secondary angle", selected: true },
-      { id: "img4", label: "Map context", selected: false },
-    ];
-  }
-  job.details = "Property Type: Commercial Unit\nLocation: Pasig\nFloor Area: 95 sqm\nRental: PHP 68,000/month\nNotes: visible frontage, move-in ready, near major roads";
-  hydrateForm();
-  renderAll();
-  log("Loaded clean sample data");
-  toast("Clean sample data loaded.");
-});
-
-el("seedBadDataBtn").addEventListener("click", () => {
-  const job = activeJob();
-  job.imageCount = 2;
-  job.hasCaptionDoc = false;
-  job.docName = "";
-  job.images = [
-    { id: "img1", label: "Only photo 1", selected: true },
-    { id: "img2", label: "Only photo 2", selected: true },
-  ];
-  job.details = "";
-  job.finalCaption = "Negotiables available 😊";
-  hydrateForm();
-  renderAll();
-  log("Loaded broken sample data");
-  toast("Broken sample data loaded.");
+  setStatus(prepared.ok ? "Pipeline ready" : "Pipeline failed");
+  toast(prepared.ok ? "Pipeline run complete." : "Pipeline run failed.");
 });
 
 el("newJobBtn").addEventListener("click", () => {
@@ -898,10 +835,8 @@ el("processNext").addEventListener("click", async () => {
     await prepareSelectedJob("queue");
     return;
   }
-  setStatus("Demo fallback loaded next property");
-  activeJobId = jobs[0].id;
-  resetWorkflowState();
-  renderAll();
+  setStatus(response.data?.detail || "No pending properties in queue");
+  toast(response.data?.detail || "No pending properties available.");
 });
 
 refs.zipDownload.addEventListener("click", (event) => {
