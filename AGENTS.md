@@ -105,3 +105,4 @@ python -m apg_automation.main --dry-run --local-folder "C:/Users/Deign/Downloads
 - `apg_automation/static/` and top-level Vite files can drift; update both only when the request needs both surfaces.
 - `CaptionReview.__eq__` intentionally compares clean reviews to strings for older tests.
 - This folder currently has no `.git`; commands that need commit or branch data will fail until initialized or opened from a repository.
+- Workspace is now a single-screen, 5-tab flow: Property details → Photos → Caption → Publish → Log. User-facing copy is intentionally jargon-free.
