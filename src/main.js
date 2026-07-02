@@ -95,6 +95,45 @@ const workflowState = {
   loggedPost: false,
 };
 
+const STEP_ORDER = ["details", "photos", "caption", "publish", "log"];
+const STEP_PREREQ = {
+  photos: () => workflowState.prepared && activeJob()?.images.length > 0,
+  caption: () => workflowState.prepared && workflowState.generatedCaption,
+  publish: () =>
+    workflowState.prepared &&
+    workflowState.downloadedAssets &&
+    workflowState.generatedCaption,
+  log: () =>
+    workflowState.prepared &&
+    workflowState.downloadedAssets &&
+    workflowState.generatedCaption &&
+    workflowState.copiedCaption &&
+    workflowState.openedFacebook,
+};
+
+function setActiveStep(step) {
+  const panels = doc.querySelectorAll(".step-panel");
+  const tabs = doc.querySelectorAll(".workflow-tab");
+  panels.forEach((panel) => {
+    panel.hidden = panel.id !== `panel-${step}`;
+  });
+  tabs.forEach((tab) => {
+    const isActive = tab.dataset.step === step;
+    tab.setAttribute("aria-selected", isActive ? "true" : "false");
+    if (isActive) {
+      tab.disabled = false;
+    } else if (STEP_PREREQ[tab.dataset.step]) {
+      tab.disabled = !STEP_PREREQ[tab.dataset.step]();
+    }
+  });
+}
+
+function updateWorkflowTabs() {
+  const activePanel = doc.querySelector(".step-panel:not([hidden])");
+  const currentStep = activePanel?.id?.replace("panel-", "") || "details";
+  setActiveStep(currentStep);
+}
+
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/service-worker.js");
 }
@@ -129,7 +168,7 @@ async function copyText(text, message) {
 
 function statusBadge(status) {
   const map = {
-    "missing-assets": ["Missing assets", "err"],
+    "missing-assets": ["Photos or caption missing", "err"],
     "ready-for-review": ["Ready for review", "warn"],
     "ready-to-post": ["Ready to post", "ready"],
     "posted": ["Posted", "ready"],
@@ -179,7 +218,7 @@ function normalizeVariants(data) {
 function renderJobList() {
   refs.jobList.innerHTML = "";
   if (jobs.length === 0) {
-    refs.jobList.innerHTML = `<div class="muted" style="padding:.5rem;">No properties queued. Create a new intake or process the next property from the queue.</div>`;
+    refs.jobList.innerHTML = `<div class="muted" style="padding:.5rem;">No properties yet. Create a new property or process the next one from the queue.</div>`;
   } else {
     jobs.forEach((job) => {
       const [label, cls] = statusBadge(job.status);
@@ -264,9 +303,9 @@ function syncFormToJob() {
 function renderValidation() {
   const job = activeJob();
   const checks = [
-    { label: "Drive folder URL provided", ok: !!job.driveUrl },
-    { label: "At least 3 images found", ok: job.imageCount >= 3 },
-    { label: "Caption details document found", ok: !!job.hasCaptionDoc },
+    { label: "Property folder link added", ok: !!job.driveUrl },
+    { label: "At least 3 photos found", ok: job.imageCount >= 3 },
+    { label: "Caption file found", ok: !!job.hasCaptionDoc },
     { label: "Operator and due date set", ok: !!job.operator && !!job.dueDate },
   ];
   refs.validationSteps.innerHTML = "";
@@ -278,7 +317,7 @@ function renderValidation() {
   });
   const allGood = checks.every((c) => c.ok);
   refs.folderStatusBadge.className = "badge " + (allGood ? "ready" : "err");
-  refs.folderStatusBadge.textContent = allGood ? "Validation passed" : "Validation blocked";
+  refs.folderStatusBadge.textContent = allGood ? "Property files ready" : "Property files incomplete";
 }
 
 function renderThumbs() {
@@ -304,7 +343,7 @@ function renderThumbs() {
   });
   const selected = job.images.filter((i) => i.selected).length;
   refs.imageCounterBadge.textContent = `${selected} selected`;
-  refs.assetSummary.textContent = `${job.imageCount} images detected in folder. ${selected} currently selected for the post package. Caption document: ${job.hasCaptionDoc ? job.docName : "missing"}.`;
+  refs.assetSummary.textContent = `${job.imageCount} photos found. ${selected} selected for the post. Caption file: ${job.hasCaptionDoc ? job.docName : "missing"}.`;
   refs.checkPhotosSelected.checked = selected >= 3;
 }
 
@@ -363,27 +402,27 @@ function renderMetrics() {
   refs.metricAssets.textContent = `${job.imageCount} images / ${job.images.filter((i) => i.selected).length} selected`;
   refs.metricDoc.textContent = job.hasCaptionDoc ? job.docName : "Caption file missing";
   refs.metricStatus.textContent = job.status.replaceAll("-", " ");
-  refs.metricTracker.textContent = "Tracker sync " + job.trackerStatus;
+  refs.metricTracker.textContent = "Post log " + job.trackerStatus;
   refs.publishHelper.textContent = job.facebookLink ? "Facebook URL captured. Ready to prepare tracker updates." : "Waiting for approval and manual publish.";
 }
 
 function prepareTrackerPreview() {
   const job = activeJob();
   const selectedImages = job.images.filter((i) => i.selected).length;
-  refs.trackerPreview.value = [
-    job.id,
-    job.propertyName,
-    job.assignedBy,
-    job.operator,
-    job.dueDate,
-    selectedImages + " selected images",
-    job.facebookLink || "[pending facebook link]",
-    job.status,
-    job.trackerStatus,
-  ].join(" | ");
+refs.trackerPreview.value = [
+  job.id,
+  job.propertyName,
+  job.assignedBy,
+  job.operator,
+  job.dueDate,
+  selectedImages + " selected photos",
+  job.facebookLink || "[pending facebook link]",
+  job.status,
+  job.trackerStatus,
+].join(" | ");
 
-  refs.dailyReportPreview.value = `Posted property: ${job.propertyName}\nAssigned by: ${job.assignedBy}\nOperator: ${job.operator}\nAsset package: ${selectedImages} selected images; caption doc ${job.hasCaptionDoc ? "present" : "missing"}\nFacebook URL: ${job.facebookLink || "[pending]"}\nStatus: ${job.status}`;
-  refs.trackerStatus.textContent = "Preview prepared. Ready for copy or future API sync.";
+refs.dailyReportPreview.value = `Posted property: ${job.propertyName}\nAssigned by: ${job.assignedBy}\nOperator: ${job.operator}\nPhoto package: ${selectedImages} selected photos; caption file ${job.hasCaptionDoc ? "present" : "missing"}\nFacebook URL: ${job.facebookLink || "[pending]"}\nStatus: ${job.status}`;
+  refs.trackerStatus.textContent = "Preview ready. You can copy and paste the summary or save it later.";
   log("Prepared tracker and daily report preview");
 }
 
@@ -407,6 +446,7 @@ function renderAll() {
   renderMetrics();
   prepareTrackerPreview();
   updateWorkflowGuide();
+  updateWorkflowTabs();
 }
 
 function renderSession() {
@@ -419,9 +459,9 @@ function renderSession() {
 }
 
 function roleCopy(role) {
-  if (role === "admin") return "admin controls";
-  if (role === "maam_jean") return "Ma'am Jean approvals";
-  return "user posting lane";
+  if (role === "admin") return "admin access";
+  if (role === "maam_jean") return "Ma'am Jean access";
+  return "user access";
 }
 
 function updateWorkflowGuide() {
@@ -460,6 +500,7 @@ function resetWorkflowState() {
   refs.facebookLink.value = "";
   refs.checkCaptionApproved.checked = false;
   refs.checkPostedToFacebook.checked = false;
+  updateWorkflowTabs();
 }
 
 async function authFetch(url, options = {}) {
@@ -507,7 +548,7 @@ async function loadJobs() {
   }
   if (!jobs.length) activeJobId = null;
   renderAll();
-  setStatus(response.ok ? "Queue loaded" : "Queue unavailable");
+  setStatus(response.ok ? "Property list ready" : "Property list unavailable");
 }
 
 async function loadActivity(jobId) {
@@ -539,7 +580,7 @@ async function createOrPrepareJob() {
 
 async function prepareSelectedJob(source) {
   const job = activeJob();
-  setStatus("Running pipeline");
+  setStatus("Checking property files");
   const jobId = job.id;
   await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/validate`, { method: "POST" }));
   const prepared = await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/prepare`, { method: "POST" }));
@@ -559,7 +600,7 @@ async function prepareSelectedJob(source) {
   workflowState.generatedCaption = Boolean(job.finalCaption || job.variants.length);
   hydrateForm();
   renderAll();
-  setStatus(prepared.ok || legacy.ok ? "Pipeline ready" : "Demo pipeline ready");
+  setStatus(prepared.ok || legacy.ok ? "Property files ready" : "Demo property files ready");
 }
 
 function formPayload() {
@@ -587,15 +628,15 @@ if (auth) {
     await loadSession();
     await loadJobs();
   });
-} else {
-  refs.userLabel.textContent = "Demo mode: Firebase config not loaded. Ma'am Jean workflow is available.";
-}
+  } else {
+    refs.userLabel.textContent = "Demo mode is active. You can explore the workspace with sample data right away.";
+  }
 
 refs.signInButton.addEventListener("click", async () => {
-  if (!auth) {
-    setStatus("Firebase config missing; staying in demo mode");
-    return;
-  }
+      if (!auth) {
+        setStatus("Demo mode is active");
+        return;
+      }
   await signInWithPopup(auth, provider);
 });
 
@@ -662,8 +703,8 @@ el("validateAssetsBtn").addEventListener("click", () => {
   job.hasCaptionDoc = refs.captionDetails.value.trim().length > 0;
   job.imageCount = job.images.length;
   renderAll();
-  log("Ran validation for " + job.propertyName);
-  toast(job.status === "missing-assets" ? "Validation blocked." : "Validation passed.");
+  log("Property check for " + job.propertyName);
+  toast(job.status === "missing-assets" ? "Property check blocked." : "Property check passed.");
 });
 
 const generateCaptionButton = el("generateCaption");
@@ -682,15 +723,15 @@ generateCaptionButton.addEventListener("click", async () => {
   renderVariants();
   renderMetrics();
   updateWorkflowGuide();
-  log("Generated " + job.variants.length + " caption variants");
-  setStatus(response.ok ? "Caption variants ready" : "Demo caption variants ready");
-  toast("Caption variants generated.");
+  log("Generated " + job.variants.length + " caption options");
+  setStatus(response.ok ? "Caption options ready" : "Demo caption options ready");
+  toast("Caption options generated.");
 });
 
 el("checkRulesBtn").addEventListener("click", () => {
   syncFormToJob();
   const issues = checkCaptionRules(refs.finalCaption.value.trim());
-  refs.captionRuleResult.textContent = issues.length ? "Rule check: " + issues.join(" ") : "Rule check passed. No banned wording or emoji-like symbols found.";
+  refs.captionRuleResult.textContent = issues.length ? "Caption check: " + issues.join(" ") : "Caption check passed. No restricted words or symbols found.";
   if (!issues.length && refs.finalCaption.value.trim()) {
     activeJob().status = "ready-to-post";
     refs.checkCaptionApproved.checked = true;
@@ -698,8 +739,8 @@ el("checkRulesBtn").addEventListener("click", () => {
   renderMetrics();
   renderJobList();
   updateWorkflowGuide();
-  log("Ran caption rule check");
-  toast(issues.length ? "Caption has rule issues." : "Caption rules passed.");
+  log("Ran caption check");
+  toast(issues.length ? "Caption has issues." : "Caption check passed.");
 });
 
 el("copyCaptionBtn").addEventListener("click", () => {
@@ -707,7 +748,7 @@ el("copyCaptionBtn").addEventListener("click", () => {
     toast("Generate the caption first");
     return;
   }
-  copyText(refs.finalCaption.value.trim(), "Final caption copied.");
+  copyText(refs.finalCaption.value.trim(), "Caption copied.");
   workflowState.copiedCaption = true;
   refs.checkCaptionApproved.checked = true;
   updateWorkflowGuide();
@@ -715,8 +756,8 @@ el("copyCaptionBtn").addEventListener("click", () => {
 
 el("copyChecklistBtn").addEventListener("click", () => {
   const job = activeJob();
-  const packet = `PROPERTY: ${job.propertyName}\nASSIGNED BY: ${job.assignedBy}\nIMAGES SELECTED: ${job.images.filter((i) => i.selected).length}\nCAPTION:\n${job.finalCaption || "[pending caption]"}\n\nPOSTING REMINDER:\n1. Open Facebook page\n2. Upload selected images manually\n3. Paste caption\n4. Publish post\n5. Paste Facebook link back into console`;
-  copyText(packet, "Posting packet copied.");
+  const packet = `Property: ${job.propertyName}\nAssigned by: ${job.assignedBy}\nPhotos: ${job.images.filter((i) => i.selected).length}\nCaption:\n${job.finalCaption || "[pending caption]"}\n\nReminder:\n1. Post to Facebook manually\n2. Paste the live Facebook URL back here`;
+  copyText(packet, "Posting checklist copied.");
 });
 
 el("openFacebookBtn").addEventListener("click", () => {
@@ -728,7 +769,7 @@ el("openFacebookBtn").addEventListener("click", () => {
   workflowState.openedFacebook = true;
   refs.checkPostedToFacebook.checked = true;
   updateWorkflowGuide();
-  log("Opened Alpha Premier Realty Facebook page");
+  log("Opened Facebook page");
   toast("Facebook page opened in a new tab.");
 });
 
@@ -737,7 +778,7 @@ refs.logButton.addEventListener("click", async () => {
   const job = activeJob();
   const selectedCount = job.images.filter((i) => i.selected).length;
   if (!refs.checkCaptionApproved.checked || selectedCount < 3 || !refs.checkPostedToFacebook.checked || !job.facebookLink.trim()) {
-    toast("Complete the manual publish checklist first.");
+    toast("Complete the posting checklist first.");
     return;
   }
   const jobId = job.id;
@@ -752,26 +793,26 @@ refs.logButton.addEventListener("click", async () => {
     body: JSON.stringify({ property_name: job.propertyName, facebook_url: job.facebookLink }),
   });
   job.status = "posted";
-  job.trackerStatus = "ready";
+  job.trackerStatus = "logged";
   workflowState.loggedPost = true;
   renderAll();
   prepareTrackerPreview();
-  log(response.ok ? "Facebook URL logged to tracker." : "Demo tracker sync completed.");
-  toast("Job marked as posted.");
+  log(response.ok ? "Facebook post saved to log." : "Demo post log completed.");
+  toast("Property marked as posted.");
 });
 
 el("prepareTrackerBtn").addEventListener("click", () => {
   syncFormToJob();
   prepareTrackerPreview();
-  toast("Tracker preview prepared.");
+  toast("Post log preview prepared.");
 });
 
-el("copyTrackerRowBtn").addEventListener("click", () => copyText(refs.trackerPreview.value, "Tracker row copied."));
-el("copyDailyReportBtn").addEventListener("click", () => copyText(refs.dailyReportPreview.value, "Daily report entry copied."));
+el("copyTrackerRowBtn").addEventListener("click", () => copyText(refs.trackerPreview.value, "Posted summary copied."));
+el("copyDailyReportBtn").addEventListener("click", () => copyText(refs.dailyReportPreview.value, "End-of-day note copied."));
 
 el("clearLogBtn").addEventListener("click", () => {
   refs.activityLog.innerHTML = "";
-  toast("Activity log cleared.");
+  toast("Recent actions cleared.");
 });
 
 el("simulatePipelineBtn").addEventListener("click", async () => {
@@ -788,14 +829,14 @@ el("simulatePipelineBtn").addEventListener("click", async () => {
       job.finalCaption = job.variants[0];
     }
   } else {
-    toast(prepared.data?.detail || "Pipeline failed. Check property details and try again.");
+    toast(prepared.data?.detail || "Property check failed. Please review the details and try again.");
   }
   workflowState.prepared = Boolean(prepared.ok);
   workflowState.generatedCaption = Boolean(job.finalCaption || job.variants.length);
   hydrateForm();
   renderAll();
-  setStatus(prepared.ok ? "Pipeline ready" : "Pipeline failed");
-  toast(prepared.ok ? "Pipeline run complete." : "Pipeline run failed.");
+setStatus(prepared.ok ? "Property files ready" : "Property check failed");
+    toast(prepared.ok ? "Property check complete." : "Property check failed.");
 });
 
 el("newJobBtn").addEventListener("click", () => {
@@ -824,8 +865,8 @@ el("newJobBtn").addEventListener("click", () => {
   resetWorkflowState();
   hydrateForm();
   renderAll();
-  log("Created a new intake job");
-  toast("New job created.");
+  log("Created a new property");
+  toast("New property added.");
 });
 
 el("processNext").addEventListener("click", async () => {
@@ -835,8 +876,8 @@ el("processNext").addEventListener("click", async () => {
     await prepareSelectedJob("queue");
     return;
   }
-  setStatus(response.data?.detail || "No pending properties in queue");
-  toast(response.data?.detail || "No pending properties available.");
+  setStatus(response.data?.detail || "No properties waiting in the queue");
+  toast(response.data?.detail || "No properties available right now.");
 });
 
 refs.zipDownload.addEventListener("click", (event) => {
@@ -846,14 +887,35 @@ refs.zipDownload.addEventListener("click", (event) => {
   }
   workflowState.downloadedAssets = true;
   updateWorkflowGuide();
-  log("Downloaded image package");
+  log("Photo package downloaded");
 });
 
 [refs.checkCaptionApproved, refs.checkPhotosSelected, refs.checkPostedToFacebook].forEach((checkbox) => {
   checkbox.addEventListener("change", updateWorkflowGuide);
 });
 
-doc.documentElement.setAttribute("data-theme", localStorage.getItem("apg-theme") || "light");
-renderAll();
-log("Console initialized");
-prepareTrackerPreview();
+  doc.documentElement.setAttribute("data-theme", localStorage.getItem("apg-theme") || "light");
+
+  const workflowNav = {
+    nextToPhotos: "photos",
+    backToDetails: "details",
+    nextToCaption: "caption",
+    backToPhotos: "photos",
+    nextToPublish: "publish",
+    backToCaption: "caption",
+    nextToLog: "log",
+    backToPublish: "publish",
+  };
+
+  Object.entries(workflowNav).forEach(([buttonId, targetStep]) => {
+    const btn = el(buttonId);
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      setActiveStep(targetStep);
+      updateWorkflowTabs();
+    });
+  });
+
+  renderAll();
+  log("Console initialized");
+  prepareTrackerPreview();

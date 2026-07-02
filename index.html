@@ -1,298 +1,337 @@
 <!doctype html>
 <html lang="en" data-theme="light">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#01696f" />
-    <meta
-      name="description"
-      content="APG Posting Console for intake, Drive validation, caption preparation, manual Facebook publishing, and tracker sync."
-    />
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <title>APG Posting Console</title>
-  </head>
-  <body>
-    <div class="app">
-      <aside class="sidebar">
-        <div class="brand">
-          <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
-            <rect x="6" y="10" width="22" height="44" rx="8" stroke="currentColor" stroke-width="4"/>
-            <path d="M36 54V18l10-8 12 10v34" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M16 22h2M16 30h2M16 38h2M46 28h2M46 36h2" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-          </svg>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#01696f" />
+  <meta
+    name="description"
+    content="APG posting workspace. Review property listings, choose photos, prepare captions, and log Facebook posts."
+  />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
+  <title>APG Posting Workspace</title>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <rect x="6" y="10" width="22" height="44" rx="8" stroke="currentColor" stroke-width="4"/>
+          <path d="M36 54V18l10-8 12 10v34" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M16 22h2M16 30h2M16 38h2M46 28h2M46 36h2" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+        <div>
+          <h1>APG Posting Workspace</h1>
+          <div class="mono" id="connectionStatus">Ready when you are</div>
+        </div>
+      </div>
+
+      <section class="auth-card" aria-labelledby="sessionTitle">
+        <div class="row-top">
           <div>
-            <h1>APG Posting Console</h1>
-            <div class="mono" id="connectionStatus">pseudo-functional prototype</div>
+            <div class="muted mono" style="margin-bottom:.2rem;">Session</div>
+            <div class="mono" id="sessionTitle">Role access</div>
           </div>
+          <span id="roleBadge" class="badge">user</span>
+        </div>
+        <p id="userLabel" class="helper" style="margin-top:.5rem;">Demo mode: You can explore the workspace with sample data right away.</p>
+        <div id="role-selector" class="role-selector" aria-label="Account type">
+          <button type="button" class="role-option active" data-role-option data-role="user" aria-pressed="true">User</button>
+          <button type="button" class="role-option" data-role-option data-role="admin" aria-pressed="false">Admin</button>
+        </div>
+        <div class="toolbar" style="margin-top:.75rem;">
+          <button id="signInButton" class="mini-btn" type="button">Sign in</button>
+          <button id="signOutButton" class="mini-btn" type="button" hidden>Sign out</button>
+        </div>
+      </section>
+
+      <button class="theme-toggle" type="button" id="themeToggle" aria-label="Toggle theme">Toggle theme</button>
+
+      <div>
+        <div class="muted mono" style="margin-bottom:.6rem;">YOUR PROPERTIES</div>
+        <nav class="nav">
+          <button class="nav-btn active" type="button" data-queue="assigned_today"><span>Assigned today</span><span class="count" id="assignedCount">0</span></button>
+          <button class="nav-btn" type="button" data-queue="waiting_approval"><span>Waiting approval</span><span class="count" id="approvalCount">0</span></button>
+          <button class="nav-btn" type="button" data-queue="ready_to_post"><span>Ready to post</span><span class="count" id="readyCount">0</span></button>
+          <button class="nav-btn" type="button" data-queue="posted_today"><span>Posted today</span><span class="count" id="postedCount">0</span></button>
+        </nav>
+      </div>
+
+      <div>
+        <div class="muted mono" style="margin-bottom:.6rem;">PROPERTY LIST</div>
+        <div class="job-list" id="jobList"></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="topbar">
+        <div>
+          <h2 id="pageTitle">Property posting workspace</h2>
+          <p class="muted">Check your property files, choose the best photos, review the caption, then log the finished Facebook post.</p>
+        </div>
+        <div class="actions">
+          <button class="btn" id="newJobBtn" type="button" data-admin-only>New intake</button>
+          <button class="btn btn-primary" id="simulatePipelineBtn" type="button">Run property check</button>
+        </div>
+      </section>
+
+      <section class="grid-3">
+        <article class="metric"><span class="muted mono">Selected property</span><strong id="metricProperty">-</strong><span class="helper" id="metricAgent">Assigned by -</span></article>
+        <article class="metric"><span class="muted mono">Photo package</span><strong id="metricAssets">-</strong><span class="helper" id="metricDoc">Caption file -</span></article>
+        <article class="metric"><span class="muted mono">Post status</span><strong id="metricStatus">-</strong><span class="helper" id="metricTracker">Post log -</span></article>
+      </section>
+
+      <section class="workspace">
+        <div class="workflow-tabs" role="tablist" aria-label="Workflow steps">
+          <button class="workflow-tab" role="tab" data-step="details" aria-selected="true" id="tab-details" aria-controls="panel-details" type="button">
+            <span class="step-marker" aria-hidden="true">1</span>
+            <span>Property details</span>
+          </button>
+          <button class="workflow-tab" role="tab" data-step="photos" aria-selected="false" id="tab-photos" aria-controls="panel-photos" type="button" disabled>
+            <span class="step-marker" aria-hidden="true">2</span>
+            <span>Photos</span>
+          </button>
+          <button class="workflow-tab" role="tab" data-step="caption" aria-selected="false" id="tab-caption" aria-controls="panel-caption" type="button" disabled>
+            <span class="step-marker" aria-hidden="true">3</span>
+            <span>Caption</span>
+          </button>
+          <button class="workflow-tab" role="tab" data-step="publish" aria-selected="false" id="tab-publish" aria-controls="panel-publish" type="button" disabled>
+            <span class="step-marker" aria-hidden="true">4</span>
+            <span>Publish</span>
+          </button>
+          <button class="workflow-tab" role="tab" data-step="log" aria-selected="false" id="tab-log" aria-controls="panel-log" type="button" disabled>
+            <span class="step-marker" aria-hidden="true">5</span>
+            <span>Log post</span>
+          </button>
         </div>
 
-        <section class="auth-card" aria-labelledby="sessionTitle">
-          <div class="row-top">
-            <div>
-              <div class="muted mono" style="margin-bottom:.2rem;">Session</div>
-              <div class="mono" id="sessionTitle">Role access</div>
+        <div class="step-panels">
+          <article class="panel step-panel" id="panel-details" role="tabpanel" aria-labelledby="tab-details">
+            <div class="panel-head">
+              <div>
+                <h3>Property details</h3>
+                <p class="muted">Check the assignment info and validate your property files.</p>
+              </div>
+              <span class="badge" id="folderStatusBadge">Property check pending</span>
             </div>
-            <span id="roleBadge" class="badge">user</span>
-          </div>
-          <p id="userLabel" class="helper" style="margin-top:.5rem;">Demo mode: Ma'am Jean queue visibility enabled.</p>
-          <div id="role-selector" class="role-selector" aria-label="Account type">
-            <button type="button" class="role-option active" data-role-option data-role="user" aria-pressed="true">User</button>
-            <button type="button" class="role-option" data-role-option data-role="admin" aria-pressed="false">Admin</button>
-          </div>
-          <div class="toolbar" style="margin-top:.75rem;">
-            <button id="signInButton" class="mini-btn" type="button">Sign in</button>
-            <button id="signOutButton" class="mini-btn" type="button" hidden>Sign out</button>
-          </div>
-        </section>
+            <div class="panel-body">
+              <div class="grid-2">
+                <div class="field">
+                  <label for="propertyName">Property name</label>
+                  <input class="input" id="propertyName" autocomplete="off" />
+                </div>
+                <div class="field">
+                  <label for="assignedBy">Assigned by</label>
+                  <input class="input" id="assignedBy" autocomplete="name" />
+                </div>
+                <div class="field">
+                  <label for="operatorName">Operator</label>
+                  <input class="input" id="operatorName" autocomplete="name" />
+                </div>
+                <div class="field">
+                  <label for="dueDate">Due date</label>
+                  <input class="input" id="dueDate" type="date" />
+                </div>
+              </div>
+              <div class="field">
+                <label for="driveUrl">Drive folder URL</label>
+                <input class="input" id="driveUrl" inputmode="url" />
+              </div>
+              <div class="toolbar">
+                <button class="mini-btn" id="validateAssetsBtn" type="button">Validate property files</button>
+                <button class="mini-btn" id="processNext" type="button" data-admin-only>Process next property</button>
+              </div>
+              <div class="steps" id="validationSteps"></div>
+            </div>
+            <div class="panel-footer">
+              <button class="btn btn-primary" type="button" id="nextToPhotos">Continue to photos</button>
+            </div>
+          </article>
 
-        <button class="theme-toggle" type="button" id="themeToggle" aria-label="Toggle theme">Toggle theme</button>
+          <article class="panel step-panel" id="panel-photos" role="tabpanel" aria-labelledby="tab-photos" hidden>
+            <div class="panel-head">
+              <div>
+                <h3>Property photos</h3>
+                <p class="muted">Select at least 3 photos to include in the post.</p>
+              </div>
+              <span class="badge" id="imageCounterBadge">0 selected</span>
+            </div>
+            <div class="panel-body">
+              <h4>Caption source file</h4>
+              <p id="sourceDocName" class="helper">Caption source: No document loaded</p>
+              <pre id="captionSourceOutput" class="source-output">Select a property to review the caption details.</pre>
+              <div class="thumbs" id="thumbs"></div>
+              <div class="helper" id="assetSummary">No asset package loaded yet.</div>
+              <a id="zipDownload" class="btn" href="#" aria-disabled="true">Download all photos</a>
+            </div>
+            <div class="panel-footer">
+              <button class="btn" type="button" id="backToDetails">Back</button>
+              <button class="btn btn-primary" type="button" id="nextToCaption">Continue to caption</button>
+            </div>
+          </article>
 
-        <div>
-          <div class="muted mono" style="margin-bottom:.6rem;">WORK QUEUES</div>
-          <nav class="nav">
-            <button class="nav-btn active" type="button" data-queue="assigned_today"><span>Assigned today</span><span class="count" id="assignedCount">0</span></button>
-            <button class="nav-btn" type="button" data-queue="waiting_approval"><span>Waiting approval</span><span class="count" id="approvalCount">0</span></button>
-            <button class="nav-btn" type="button" data-queue="ready_to_post"><span>Ready to post</span><span class="count" id="readyCount">0</span></button>
-            <button class="nav-btn" type="button" data-queue="posted_today"><span>Posted today</span><span class="count" id="postedCount">0</span></button>
-          </nav>
+          <article class="panel step-panel" id="panel-caption" role="tabpanel" aria-labelledby="tab-caption" hidden>
+            <div class="panel-head">
+              <div>
+                <h3>Caption drafting</h3>
+                <p class="muted">Review the source caption details, then generate caption options.</p>
+              </div>
+              <div class="toolbar">
+                <button class="mini-btn" id="generateCaption" type="button">Generate Caption</button>
+                <button class="mini-btn" id="checkRulesBtn" type="button">Check rules</button>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="field">
+                <label for="captionDetails">Caption details source</label>
+                <textarea class="textarea" id="captionDetails"></textarea>
+              </div>
+              <div id="captionGuidance" class="rule-check">
+                <h4>Caption quality check</h4>
+                <ul>
+                  <li>No emojis.</li>
+                  <li>Do not use "least term".</li>
+                  <li>Do not use "negotiables".</li>
+                </ul>
+              </div>
+              <div class="field">
+                <label for="finalCaption">Final caption</label>
+                <textarea class="textarea" id="finalCaption"></textarea>
+              </div>
+              <div class="helper" id="captionRuleResult">No caption check run yet.</div>
+              <div class="caption-variants" id="captionVariants"></div>
+            </div>
+            <div class="panel-footer">
+              <button class="btn" type="button" id="backToPhotos">Back</button>
+              <button class="btn btn-primary" type="button" id="nextToPublish">Continue to posting</button>
+            </div>
+          </article>
+
+          <article class="panel step-panel" id="panel-publish" role="tabpanel" aria-labelledby="tab-publish" hidden>
+            <div class="panel-head">
+              <div>
+                <h3>Facebook posting</h3>
+                <p class="muted">The final Facebook post is done manually. Use this panel to prepare your posting packet.</p>
+              </div>
+              <span class="badge ready">Manual posting step</span>
+            </div>
+            <div class="panel-body">
+              <aside class="workflow-guide" aria-labelledby="workflowTitle">
+                <h4 id="workflowTitle">Workflow Progress Guide</h4>
+                <ol class="steps">
+                  <li class="step workflow-step" data-step="download" data-state="active">
+                    <span class="step-marker" data-number="1" aria-hidden="true">1</span>
+                    <div>
+                      <strong>Step 1: Download photos</strong>
+                      <div class="muted">Save the selected photos to your device.</div>
+                    </div>
+                  </li>
+                  <li class="step workflow-step" data-step="copy" data-state="locked">
+                    <span class="step-marker" data-number="2" aria-hidden="true">2</span>
+                    <div>
+                      <strong>Step 2: Copy the caption</strong>
+                      <div class="muted">Emojis and restricted words have already been removed by the system.</div>
+                    </div>
+                  </li>
+                  <li class="step workflow-step" data-step="facebook" data-state="locked">
+                    <span class="step-marker" data-number="3" aria-hidden="true">3</span>
+                    <div>
+                      <strong>Step 3: Post to Facebook</strong>
+                      <div class="muted">Open Facebook and publish the post manually.</div>
+                    </div>
+                  </li>
+                  <li class="step workflow-step" data-step="url" data-state="locked">
+                    <span class="step-marker" data-number="4" aria-hidden="true">4</span>
+                    <div>
+                      <strong>Step 4: Paste the live post URL</strong>
+                      <div class="muted">Paste the final Facebook post URL here.</div>
+                    </div>
+                  </li>
+                  <li class="step workflow-step" data-step="log" data-state="locked">
+                    <span class="step-marker" data-number="5" aria-hidden="true">5</span>
+                    <div>
+                      <strong>Step 5: Log the post</strong>
+                      <div class="muted">Mark this property as posted once the live URL is ready.</div>
+                    </div>
+                  </li>
+                </ol>
+              </aside>
+              <div class="checklist">
+                <label class="check-item"><input type="checkbox" id="checkCaptionApproved"> <span>Caption is approved</span></label>
+                <label class="check-item"><input type="checkbox" id="checkPhotosSelected"> <span>At least 3 photos are selected</span></label>
+                <label class="check-item"><input type="checkbox" id="checkPostedToFacebook"> <span>Property was posted manually on Facebook</span></label>
+              </div>
+              <div id="facebookUrlGroup" class="field" hidden>
+                <label for="facebookLink">Facebook post URL</label>
+                <input class="input" id="facebookLink" placeholder="Paste final Facebook post URL here" inputmode="url" />
+              </div>
+              <div class="toolbar">
+                <button class="mini-btn" id="copyCaptionBtn" type="button">Copy caption</button>
+                <button class="mini-btn" id="copyChecklistBtn" type="button">Copy posting checklist</button>
+                <button class="mini-btn" id="openFacebookBtn" type="button">Open Facebook</button>
+                <button class="mini-btn btn-primary" id="logPostButton" type="button" disabled>Mark as posted</button>
+              </div>
+              <div class="helper" id="publishHelper">Finish the manual posting steps above to continue.</div>
+            </div>
+            <div class="panel-footer">
+              <button class="btn" type="button" id="backToCaption">Back</button>
+              <button class="btn btn-primary" type="button" id="nextToLog">Continue to log</button>
+            </div>
+          </article>
+
+          <article class="panel step-panel" id="panel-log" role="tabpanel" aria-labelledby="tab-log" hidden>
+            <div class="panel-head">
+              <div>
+                <h3>Post log</h3>
+                <p class="muted">Preview the property summary, then save or copy the entries.</p>
+              </div>
+              <div class="toolbar">
+                <button class="mini-btn" id="prepareTrackerBtn" type="button">Prepare updates</button>
+                <button class="mini-btn" id="copyTrackerRowBtn" type="button">Copy tracker row</button>
+                <button class="mini-btn" id="copyDailyReportBtn" type="button">Copy daily report</button>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="field">
+                <label for="trackerPreview">Posted property summary</label>
+                <textarea class="textarea" id="trackerPreview"></textarea>
+              </div>
+              <div class="field">
+                <label for="dailyReportPreview">End-of-day note</label>
+                <textarea class="textarea" id="dailyReportPreview"></textarea>
+              </div>
+              <div class="helper" id="trackerStatus">Not prepared yet.</div>
+            </div>
+            <div class="panel-footer">
+              <button class="btn" type="button" id="backToPublish">Back</button>
+              <button class="btn btn-primary" type="button" id="finishWorkflow">Finish and start new</button>
+            </div>
+          </article>
         </div>
 
-        <div>
-          <div class="muted mono" style="margin-bottom:.6rem;">JOB LIST</div>
-          <div class="job-list" id="jobList"></div>
-        </div>
-      </aside>
-
-      <main class="content">
-        <section class="topbar">
-          <div>
-            <h2 id="pageTitle">Property job workspace</h2>
-            <p class="muted">Drive validation, caption generation, human-reviewed Facebook posting, then tracker update prep.</p>
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <h3>Recent actions</h3>
+              <p class="muted">Shows the latest steps taken in this workspace.</p>
+            </div>
+            <button class="mini-btn" id="clearLogBtn" type="button">Clear log</button>
           </div>
-          <div class="actions">
-            <button class="btn" id="newJobBtn" type="button" data-admin-only>New intake</button>
-            <button class="btn btn-primary" id="simulatePipelineBtn" type="button">Run pipeline</button>
+          <div class="panel-body">
+            <div class="log" id="activityLog"></div>
           </div>
-        </section>
+        </article>
+      </section>
+    </main>
+  </div>
 
-        <section class="grid-3">
-          <article class="metric"><span class="muted mono">Selected property</span><strong id="metricProperty">-</strong><span class="helper" id="metricAgent">Assigned by -</span></article>
-          <article class="metric"><span class="muted mono">Asset health</span><strong id="metricAssets">-</strong><span class="helper" id="metricDoc">Caption file -</span></article>
-          <article class="metric"><span class="muted mono">Publish status</span><strong id="metricStatus">-</strong><span class="helper" id="metricTracker">Tracker sync -</span></article>
-        </section>
-
-        <section class="workspace">
-          <div class="stack">
-            <article class="panel">
-              <div class="panel-head">
-                <div>
-                  <h3>Intake and validation</h3>
-                  <p class="muted">Edit assignment details, then validate required assets.</p>
-                </div>
-                <span class="badge" id="folderStatusBadge">Folder lookup pending</span>
-              </div>
-              <div class="panel-body">
-                <div class="grid-2">
-                  <div class="field">
-                    <label for="propertyName">Property name</label>
-                    <input class="input" id="propertyName" autocomplete="off" />
-                  </div>
-                  <div class="field">
-                    <label for="assignedBy">Assigned by</label>
-                    <input class="input" id="assignedBy" autocomplete="name" />
-                  </div>
-                  <div class="field">
-                    <label for="operatorName">Operator</label>
-                    <input class="input" id="operatorName" autocomplete="name" />
-                  </div>
-                  <div class="field">
-                    <label for="dueDate">Due date</label>
-                    <input class="input" id="dueDate" type="date" />
-                  </div>
-                </div>
-                <div class="field">
-                  <label for="driveUrl">Drive folder URL</label>
-                  <input class="input" id="driveUrl" inputmode="url" />
-                </div>
-                <div class="toolbar">
-        <button class="mini-btn" id="validateAssetsBtn" type="button">Validate assets</button>
-        <button class="mini-btn" id="processNext" type="button" data-admin-only>Process next property</button>
-                </div>
-                <div class="steps" id="validationSteps"></div>
-              </div>
-            </article>
-
-            <article class="panel">
-              <div class="panel-head">
-                <div>
-                  <h3>Drive assets</h3>
-                  <p class="muted">Select at least 3 images that will be packaged for posting.</p>
-                </div>
-                <span class="badge" id="imageCounterBadge">0 selected</span>
-              </div>
-              <div class="panel-body">
-                <h4>Source Caption Document</h4>
-                <p id="sourceDocName" class="helper">Source caption document: No document loaded</p>
-                <pre id="captionSourceOutput" class="source-output">Fetch a property to review the extracted DOCX details here.</pre>
-                <div class="thumbs" id="thumbs"></div>
-                <div class="helper" id="assetSummary">No asset package loaded yet.</div>
-                <a id="zipDownload" class="btn" href="#" aria-disabled="true">Download All Images</a>
-              </div>
-            </article>
-
-            <article class="panel">
-              <div class="panel-head">
-                <div>
-                  <h3>Caption workbench</h3>
-                  <p class="muted">Generate variants from the caption details file and enforce APG writing rules.</p>
-                </div>
-                <div class="toolbar">
-                  <button class="mini-btn" id="generateCaption" type="button">Generate Caption</button>
-                  <button class="mini-btn" id="checkRulesBtn" type="button">Check rules</button>
-                </div>
-              </div>
-              <div class="panel-body">
-                <div class="field">
-                  <label for="captionDetails">Caption details source</label>
-                  <textarea class="textarea" id="captionDetails"></textarea>
-                </div>
-                <div id="captionGuidance" class="rule-check">
-                  <h4>APG rule check</h4>
-                  <ul>
-                    <li>No emojis.</li>
-                    <li>Do not use "least term".</li>
-                    <li>Do not use "negotiables".</li>
-                  </ul>
-                </div>
-                <div class="field">
-                  <label for="finalCaption">Final caption</label>
-                  <textarea class="textarea" id="finalCaption"></textarea>
-                </div>
-                <div class="helper" id="captionRuleResult">No caption check run yet.</div>
-                <div class="caption-variants" id="captionVariants"></div>
-              </div>
-            </article>
-          </div>
-
-          <div class="stack">
-            <article class="panel">
-              <div class="panel-head">
-                <div>
-                  <h3>Human-in-the-loop publish</h3>
-                  <p class="muted">The final Facebook post is manual-assisted. This panel prepares the operator packet.</p>
-                </div>
-                <span class="badge ready">Manual publish gate</span>
-              </div>
-              <div class="panel-body">
-                <aside class="workflow-guide" aria-labelledby="workflowTitle">
-                  <h4 id="workflowTitle">Workflow Progress Guide</h4>
-                  <ol class="steps">
-                    <li class="step workflow-step" data-step="download" data-state="active">
-                      <span class="step-marker" data-number="1" aria-hidden="true">1</span>
-                      <div>
-                        <strong>Step 1: Download Assets</strong>
-                        <div class="muted">Save these 3+ images to your local device.</div>
-                      </div>
-                    </li>
-                    <li class="step workflow-step" data-step="copy" data-state="locked">
-                      <span class="step-marker" data-number="2" aria-hidden="true">2</span>
-                      <div>
-                        <strong>Step 2: Copy the Caption</strong>
-                        <div class="muted">The AI has automatically stripped emojis and restricted words.</div>
-                      </div>
-                    </li>
-                    <li class="step workflow-step" data-step="facebook" data-state="locked">
-                      <span class="step-marker" data-number="3" aria-hidden="true">3</span>
-                      <div>
-                        <strong>Step 3: Post to Facebook</strong>
-                        <div class="muted">Open Facebook Profile/Alt Account and publish manually.</div>
-                      </div>
-                    </li>
-                    <li class="step workflow-step" data-step="url" data-state="locked">
-                      <span class="step-marker" data-number="4" aria-hidden="true">4</span>
-                      <div>
-                        <strong>Step 4: Copy &amp; Paste Live URL</strong>
-                        <div class="muted">Paste the final Facebook post URL for tracker logging.</div>
-                      </div>
-                    </li>
-                    <li class="step workflow-step" data-step="log" data-state="locked">
-                      <span class="step-marker" data-number="5" aria-hidden="true">5</span>
-                      <div>
-                        <strong>Step 5: Finalize &amp; Log</strong>
-                        <div class="muted">Click to Log Post after the live URL is ready.</div>
-                      </div>
-                    </li>
-                  </ol>
-                </aside>
-                <div class="checklist">
-                  <label class="check-item"><input type="checkbox" id="checkCaptionApproved"> <span>Caption is approved</span></label>
-                  <label class="check-item"><input type="checkbox" id="checkPhotosSelected"> <span>At least 3 photos are selected</span></label>
-                  <label class="check-item"><input type="checkbox" id="checkPostedToFacebook"> <span>Property was posted manually on Facebook</span></label>
-                </div>
-                <div id="facebookUrlGroup" class="field" hidden>
-                  <label for="facebookLink">Facebook post URL</label>
-                  <input class="input" id="facebookLink" placeholder="Paste final Facebook post URL here" inputmode="url" />
-                </div>
-                <div class="toolbar">
-                  <button class="mini-btn" id="copyCaptionBtn" type="button">Copy caption</button>
-                  <button class="mini-btn" id="copyChecklistBtn" type="button">Copy posting packet</button>
-                  <button class="mini-btn" id="openFacebookBtn" type="button">Open Facebook</button>
-                  <button class="mini-btn btn-primary" id="logPostButton" type="button" disabled>Click to Log Post</button>
-                </div>
-                <div class="helper" id="publishHelper">Waiting for approval and manual publish.</div>
-              </div>
-            </article>
-
-            <article class="panel">
-              <div class="panel-head">
-                <div>
-                  <h3>Tracker sync preview</h3>
-                  <p class="muted">Pseudo output for the posting tracker sheet and the APG daily progress report.</p>
-                </div>
-                <div class="toolbar">
-                  <button class="mini-btn" id="prepareTrackerBtn" type="button">Prepare updates</button>
-                  <button class="mini-btn" id="copyTrackerRowBtn" type="button">Copy tracker row</button>
-                  <button class="mini-btn" id="copyDailyReportBtn" type="button">Copy daily report</button>
-                </div>
-              </div>
-              <div class="panel-body">
-                <div class="field">
-                  <label for="trackerPreview">Posting tracker row</label>
-                  <textarea class="textarea" id="trackerPreview"></textarea>
-                </div>
-                <div class="field">
-                  <label for="dailyReportPreview">Daily progress report entry</label>
-                  <textarea class="textarea" id="dailyReportPreview"></textarea>
-                </div>
-                <div class="helper" id="trackerStatus">Not prepared yet.</div>
-              </div>
-            </article>
-
-            <article class="panel">
-              <div class="panel-head">
-                <div>
-                  <h3>Activity log</h3>
-                  <p class="muted">Shows pseudo-system events across the workflow.</p>
-                </div>
-                <button class="mini-btn" id="clearLogBtn" type="button">Clear log</button>
-              </div>
-              <div class="panel-body">
-                <div class="log" id="activityLog"></div>
-              </div>
-            </article>
-          </div>
-        </section>
-      </main>
-    </div>
-
-    <div class="toast" id="toast"></div>
-
-    <script type="module" src="/src/main.js"></script>
-  </body>
+  <div class="toast" id="toast"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
 </html>

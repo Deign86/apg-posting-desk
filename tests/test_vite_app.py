@@ -35,7 +35,7 @@ def test_caption_panel_shows_source_doc_and_generate_button():
     html = Path("index.html").read_text(encoding="utf-8")
     source = Path("src/main.js").read_text(encoding="utf-8")
 
-    assert "Source Caption Document" in html
+    assert "Caption source file" in html
     assert "sourceDocName" in html
     assert "captionSourceOutput" in html
     assert "generateCaption" in html
@@ -53,14 +53,14 @@ def test_workflow_progress_guide_markup_lists_required_operator_steps():
     html = Path("index.html").read_text(encoding="utf-8")
 
     assert "Workflow Progress Guide" in html
-    assert "Step 1: Download Assets" in html
-    assert "Save these 3+ images to your local device." in html
-    assert "Step 2: Copy the Caption" in html
-    assert "The AI has automatically stripped emojis and restricted words." in html
+    assert "Step 1: Download photos" in html
+    assert "Save the selected photos to your device." in html
+    assert "Step 2: Copy the caption" in html
+    assert "Emojis and restricted words have already been removed by the system." in html
     assert "Step 3: Post to Facebook" in html
-    assert "Open Facebook Profile/Alt Account" in html
-    assert "Step 4: Copy &amp; Paste Live URL" in html
-    assert "Step 5: Finalize &amp; Log" in html
+    assert "Open Facebook and publish the post manually." in html
+    assert "Step 4: Paste the live post URL" in html
+    assert "Step 5: Log the post" in html
 
 
 def test_workflow_progress_logic_gates_steps_in_order():
@@ -78,18 +78,18 @@ def test_workflow_progress_logic_gates_steps_in_order():
 def test_frontend_markup_matches_prototype_console_sections():
     html = Path("index.html").read_text(encoding="utf-8")
 
-    assert "APG Posting Console" in html
+    assert "APG Posting Workspace" in html
     assert "Assigned today" in html
     assert "Waiting approval" in html
     assert "Ready to post" in html
     assert "Posted today" in html
-    assert "JOB LIST" in html
-    assert "Intake and validation" in html
-    assert "Drive assets" in html
-    assert "Caption workbench" in html
-    assert "Human-in-the-loop publish" in html
-    assert "Tracker sync preview" in html
-    assert "Activity log" in html
+    assert "PROPERTY LIST" in html
+    assert "Property details" in html
+    assert "Property photos" in html
+    assert "Caption drafting" in html
+    assert "Facebook posting" in html
+    assert "Post log" in html
+    assert "Recent actions" in html
     assert "Toggle theme" in html
 
 
