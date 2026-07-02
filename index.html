@@ -32,24 +32,34 @@
         </div>
       </div>
 
-      <section class="auth-card" aria-labelledby="sessionTitle">
-        <div class="row-top">
-          <div>
-            <div class="muted mono" style="margin-bottom:.2rem;">Session</div>
-            <div class="mono" id="sessionTitle">Role access</div>
-          </div>
-          <span id="roleBadge" class="badge">user</span>
-        </div>
-        <p id="userLabel" class="helper" style="margin-top:.5rem;">Demo mode: You can explore the workspace with sample data right away.</p>
-        <div id="role-selector" class="role-selector" aria-label="Account type">
-          <button type="button" class="role-option active" data-role-option data-role="user" aria-pressed="true">User</button>
-          <button type="button" class="role-option" data-role-option data-role="admin" aria-pressed="false">Admin</button>
-        </div>
-        <div class="toolbar" style="margin-top:.75rem;">
-          <button id="signInButton" class="mini-btn" type="button">Sign in</button>
-          <button id="signOutButton" class="mini-btn" type="button" hidden>Sign out</button>
-        </div>
-      </section>
+<section class="auth-card" aria-labelledby="sessionTitleLogin">
+  <div class="row-top">
+    <div>
+      <div class="muted mono" style="margin-bottom:.2rem;">Session</div>
+      <div class="mono" id="sessionTitle">Role access</div>
+    </div>
+    <span id="roleBadge" class="badge">user</span>
+  </div>
+  <div id="userLabel" class="helper" style="margin-top:.5rem;">Use your APG account to continue.</div>
+  <div id="login-form" class="login-form" style="margin-top:.75rem; display:flex; flex-direction:column; gap:.75rem;">
+    <div class="field">
+      <label for="loginEmail">Email</label>
+      <input class="input" id="loginEmail" type="email" autocomplete="email" />
+    </div>
+    <div class="field">
+      <label for="loginPassword">Password</label>
+      <input class="input" id="loginPassword" type="password" autocomplete="current-password" />
+    </div>
+    <button id="loginSubmit" class="btn btn-primary" type="button">Sign in</button>
+    <p id="loginError" class="helper" style="color:var(--color-error);" hidden></p>
+    <button id="loginLoader" class="mini-btn" type="button" hidden>Signing in...</button>
+  </div>
+  <div class="toolbar" style="margin-top:.75rem;">
+    <button id="signInButton" class="mini-btn" type="button" hidden>Sign in</button>
+    <button id="signOutButton" class="mini-btn" type="button" hidden>Sign out</button>
+  </div>
+</section>
+
 
       <button class="theme-toggle" type="button" id="themeToggle" aria-label="Toggle theme">Toggle theme</button>
 

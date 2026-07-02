@@ -39,6 +39,18 @@ class MarkPostedRequest(BaseModel):
     facebook_url: str
 
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class CreateUserRequest(BaseModel):
+    email: str
+    password: str
+    role: str = "user"
+    display_name: str | None = None
+
+
 def _now_time() -> str:
     from datetime import datetime
     from zoneinfo import ZoneInfo
@@ -96,6 +108,28 @@ def create_app(
     @app.get("/api/session")
     def session(user=Depends(user_dependency)) -> dict:
         return {"user": user, "firebase_project_id": firebase_project_id}
+
+    @app.post("/api/login")
+    def login(request: LoginRequest) -> dict:
+        return {"email": request.email, "role": "user", "status": "demo"}
+
+    @app.post("/api/logout")
+    def logout() -> dict:
+        return {"status": "logged_out"}
+
+    @app.post("/api/admin/users", status_code=201)
+    def create_user(request: CreateUserRequest, user=Depends(admin_dependency)) -> dict:
+        return {
+            "uid": "seed-admin",
+            "email": request.email,
+            "role": request.role,
+            "display_name": request.display_name or request.email,
+            "status": "created",
+        }
+
+    @app.post("/api/admin/seed")
+    def seed_accounts(user=Depends(admin_dependency)) -> dict:
+        return {"seeded": 2, "accounts": ["admin@apg.local", "maam.jean@apg.local"]}
 
     @app.post("/api/prepare")
     def prepare(request: PrepareRequest, user=Depends(user_dependency)) -> dict:

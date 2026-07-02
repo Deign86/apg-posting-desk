@@ -1,40 +1,32 @@
 import "./styles.css";
-import { initializeApp } from "firebase/app";
-import {
-  GoogleAuthProvider,
-  getAuth,
-  onAuthStateChanged,
-  signInWithPopup,
-  signOut,
-} from "firebase/auth";
 
 const doc = document;
 const el = (id) => doc.getElementById(id);
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
 };
-const hostedDomain = (import.meta.env.VITE_APG_GOOGLE_DOMAIN || "").trim();
-const shouldRestrictDomain = hostedDomain && !hostedDomain.endsWith(".example");
-const firebaseReady = Object.values(firebaseConfig).every(Boolean);
-const auth = firebaseReady ? getAuth(initializeApp(firebaseConfig)) : null;
-const provider = new GoogleAuthProvider();
-if (shouldRestrictDomain) {
-  provider.setCustomParameters({ hd: hostedDomain });
-}
 
+let app = null;
+let auth = null;
 let currentUser = null;
-let selectedRole = (doc.querySelector(".role-option.active") || {}).dataset?.role || "user";
-let session = {
+
+const session = {
   firebase_project_id: firebaseConfig.projectId || "demo",
-  user: { uid: "demo-operator", email: "demo@apg.local", role: selectedRole, display_name: "Demo operator" },
+  user: {
+    uid: "demo-operator",
+    email: "demo@apg.local",
+    role: "user",
+    display_name: "Demo operator",
+  },
 };
 
 let jobs = [];
 let activeJobId = null;
+let isLoggedIn = false;
 
 const refs = {
   jobList: el("jobList"),
@@ -83,6 +75,11 @@ const refs = {
   sessionTitle: el("sessionTitle"),
   facebookUrlGroup: el("facebookUrlGroup"),
   logButton: el("logPostButton"),
+  loginEmail: el("loginEmail"),
+  loginPassword: el("loginPassword"),
+  loginError: el("loginError"),
+  loginSubmit: el("loginSubmit"),
+  loginLoader: el("loginLoader"),
 };
 
 const workflowState = {
@@ -146,7 +143,10 @@ function activeJob() {
 function log(message) {
   const item = doc.createElement("div");
   item.className = "log-item";
-  item.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + " — " + message;
+  item.textContent =
+    new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
+    " — " +
+    message;
   refs.activityLog.prepend(item);
 }
 
@@ -154,7 +154,10 @@ function toast(message) {
   refs.toast.textContent = message;
   refs.toast.classList.add("show");
   clearTimeout(window.__toastTimer);
-  window.__toastTimer = setTimeout(() => refs.toast.classList.remove("show"), 2200);
+  window.__toastTimer = setTimeout(
+    () => refs.toast.classList.remove("show"),
+    2200
+  );
 }
 
 async function copyText(text, message) {
@@ -171,21 +174,23 @@ function statusBadge(status) {
     "missing-assets": ["Photos or caption missing", "err"],
     "ready-for-review": ["Ready for review", "warn"],
     "ready-to-post": ["Ready to post", "ready"],
-    "posted": ["Posted", "ready"],
-    "posted_today": ["Posted today", "ready"],
-    "waiting_approval": ["Waiting approval", "warn"],
+    posted: ["Posted", "ready"],
+    posted_today: ["Posted today", "ready"],
+    waiting_approval: ["Waiting approval", "warn"],
   };
-  return map[status] || [status.replaceAll("-", " ").replaceAll("_", " "), ""];
+  return (
+    map[status] || [status.replaceAll("-", " ").replaceAll("_", " "), ""]
+  );
 }
 
 function normalizeJob(raw) {
   const images = Array.isArray(raw.images)
     ? raw.images.map((img, idx) => ({
-        id: img.id || `img${idx + 1}`,
-        label: img.name || img.label || `Photo ${idx + 1}`,
-        selected: Boolean(img.selected),
-        url: img.url || "/icon-192.png",
-      }))
+      id: img.id || `img${idx + 1}`,
+      label: img.name || img.label || `Photo ${idx + 1}`,
+      selected: Boolean(img.selected),
+      url: img.url || "/icon-192.png",
+    }))
     : [];
   return {
     id: raw.id || raw.property_id || "unknown",
@@ -195,7 +200,9 @@ function normalizeJob(raw) {
     dueDate: raw.due_date || raw.dueDate || new Date().toISOString().slice(0, 10),
     driveUrl: raw.drive_url || raw.driveUrl || "",
     imageCount: raw.image_count ?? raw.imageCount ?? images.length,
-    hasCaptionDoc: Boolean(raw.caption_document_name || raw.hasCaptionDoc || raw.caption_details || raw.details),
+    hasCaptionDoc: Boolean(
+      raw.caption_document_name || raw.hasCaptionDoc || raw.caption_details || raw.details
+    ),
     docName: raw.caption_document_name || raw.docName || "",
     status: (raw.status || "missing-assets").replaceAll("_", "-"),
     trackerStatus: raw.tracker_status || raw.trackerStatus || "pending",
@@ -242,9 +249,13 @@ function renderJobList() {
     });
   }
   refs.assignedCount.textContent = jobs.length;
-  refs.approvalCount.textContent = jobs.filter((j) => j.status === "ready-for-review" || j.status === "waiting-approval").length;
+  refs.approvalCount.textContent = jobs.filter(
+    (j) => j.status === "ready-for-review" || j.status === "waiting-approval"
+  ).length;
   refs.readyCount.textContent = jobs.filter((j) => j.status === "ready-to-post").length;
-  refs.postedCount.textContent = jobs.filter((j) => j.status === "posted" || j.status === "posted_today").length;
+  refs.postedCount.textContent = jobs.filter(
+    (j) => j.status === "posted" || j.status === "posted_today"
+  ).length;
 }
 
 function hydrateForm() {
@@ -262,7 +273,8 @@ function hydrateForm() {
     refs.checkPhotosSelected.checked = false;
     refs.checkPostedToFacebook.checked = false;
     refs.sourceDocName.textContent = "No document loaded";
-    refs.captionSourceOutput.textContent = "Select a property to review extracted details here.";
+    refs.captionSourceOutput.textContent =
+      "Select a property to review the extracted details here.";
     refs.zipDownload.href = "#";
     refs.zipDownload.setAttribute("aria-disabled", "true");
     workflowState.generatedCaption = false;
@@ -277,15 +289,20 @@ function hydrateForm() {
   refs.finalCaption.value = job.finalCaption || "";
   refs.facebookLink.value = job.facebookLink || "";
   refs.checkCaptionApproved.checked = !!job.finalCaption;
-  refs.checkPhotosSelected.checked = job.images.filter((i) => i.selected).length >= 3;
+  refs.checkPhotosSelected.checked =
+    job.images.filter((i) => i.selected).length >= 3;
   refs.checkPostedToFacebook.checked = !!job.facebookLink;
   refs.sourceDocName.textContent = `Source caption document: ${job.docName || "No document loaded"}`;
-  refs.captionSourceOutput.textContent = job.details || "Fetch a property to review the extracted DOCX details here.";
+  refs.captionSourceOutput.textContent =
+    job.details ||
+    "Fetch a property to review the extracted DOCX details here.";
   refs.zipDownload.href = `/prepared/${encodeURIComponent(job.propertyName)}.zip`;
   if (job.images.length > 0) {
     refs.zipDownload.removeAttribute("aria-disabled");
   }
-  workflowState.generatedCaption = Boolean(job.finalCaption || job.variants.length);
+  workflowState.generatedCaption = Boolean(
+    job.finalCaption || job.variants.length
+  );
 }
 
 function syncFormToJob() {
@@ -311,13 +328,16 @@ function renderValidation() {
   refs.validationSteps.innerHTML = "";
   checks.forEach((check, idx) => {
     const div = doc.createElement("div");
-    div.className = "step " + (check.ok ? "done" : idx === 0 ? "current" : "");
+    div.className =
+      "step " + (check.ok ? "done" : idx === 0 ? "current" : "");
     div.innerHTML = `<strong>${check.label}</strong><div class="muted">${check.ok ? "Passed" : "Needs attention"}</div>`;
     refs.validationSteps.appendChild(div);
   });
   const allGood = checks.every((c) => c.ok);
   refs.folderStatusBadge.className = "badge " + (allGood ? "ready" : "err");
-  refs.folderStatusBadge.textContent = allGood ? "Property files ready" : "Property files incomplete";
+  refs.folderStatusBadge.textContent = allGood
+    ? "Property files ready"
+    : "Property files incomplete";
 }
 
 function renderThumbs() {
@@ -337,7 +357,7 @@ function renderThumbs() {
       renderThumbs();
       renderMetrics();
       updateWorkflowGuide();
-      log((img.selected ? "Selected " : "Deselected ") + img.label);
+      log(img.selected ? "Selected " : "Deselected " + img.label);
     });
     refs.thumbs.appendChild(card);
   });
@@ -359,10 +379,14 @@ function buildVariants(details) {
 function checkCaptionRules(text) {
   const issues = [];
   const lowered = text.toLowerCase();
-  if (/[^\w\s.,:/()\-₱#]/u.test(text)) issues.push("Possible emoji or unsupported symbol detected.");
-  if (lowered.includes("negotiables")) issues.push("Contains banned term: negotiables.");
-  if (lowered.includes("negotioables")) issues.push("Contains banned term: negotioables.");
-  if (lowered.includes("least term")) issues.push("Contains banned term: least term.");
+  if (/[^\w\s.,:/()\-₱#]/u.test(text))
+    issues.push("Possible emoji or unsupported symbol detected.");
+  if (lowered.includes("negotiables"))
+    issues.push("Contains banned term: negotiables.");
+  if (lowered.includes("negotioables"))
+    issues.push("Contains banned term: negotioables.");
+  if (lowered.includes("least term"))
+    issues.push("Contains banned term: least term.");
   return issues;
 }
 
@@ -371,7 +395,8 @@ function renderVariants() {
   refs.captionVariants.innerHTML = "";
   job.variants.forEach((text, idx) => {
     const card = doc.createElement("div");
-    card.className = "variant" + (job.finalCaption === text ? " active" : "");
+    card.className =
+      "variant" + (job.finalCaption === text ? " active" : "");
     card.innerHTML = `
       <div class="status-line"><strong>Variant ${idx + 1}</strong><span class="badge">candidate</span></div>
       <div class="variant-text">${text}</div>
@@ -390,7 +415,9 @@ function renderVariants() {
       log("Selected caption variant " + (idx + 1));
       toast("Caption applied.");
     });
-    card.querySelector("[data-copy]").addEventListener("click", () => copyText(text, "Caption copied."));
+    card.querySelector("[data-copy]").addEventListener("click", () =>
+      copyText(text, "Caption copied.")
+    );
     refs.captionVariants.appendChild(card);
   });
 }
@@ -403,26 +430,34 @@ function renderMetrics() {
   refs.metricDoc.textContent = job.hasCaptionDoc ? job.docName : "Caption file missing";
   refs.metricStatus.textContent = job.status.replaceAll("-", " ");
   refs.metricTracker.textContent = "Post log " + job.trackerStatus;
-  refs.publishHelper.textContent = job.facebookLink ? "Facebook URL captured. Ready to prepare tracker updates." : "Waiting for approval and manual publish.";
+  refs.publishHelper.textContent = job.facebookLink
+    ? "Facebook URL captured. Ready to prepare tracker updates."
+    : "Waiting for approval and manual publish.";
 }
 
 function prepareTrackerPreview() {
   const job = activeJob();
   const selectedImages = job.images.filter((i) => i.selected).length;
-refs.trackerPreview.value = [
-  job.id,
-  job.propertyName,
-  job.assignedBy,
-  job.operator,
-  job.dueDate,
-  selectedImages + " selected photos",
-  job.facebookLink || "[pending facebook link]",
-  job.status,
-  job.trackerStatus,
-].join(" | ");
+  refs.trackerPreview.value = [
+    job.id,
+    job.propertyName,
+    job.assignedBy,
+    job.operator,
+    job.dueDate,
+    selectedImages + " selected photos",
+    job.facebookLink || "[pending facebook link]",
+    job.status,
+    job.trackerStatus,
+  ].join(" | ");
 
-refs.dailyReportPreview.value = `Posted property: ${job.propertyName}\nAssigned by: ${job.assignedBy}\nOperator: ${job.operator}\nPhoto package: ${selectedImages} selected photos; caption file ${job.hasCaptionDoc ? "present" : "missing"}\nFacebook URL: ${job.facebookLink || "[pending]"}\nStatus: ${job.status}`;
-  refs.trackerStatus.textContent = "Preview ready. You can copy and paste the summary or save it later.";
+  refs.dailyReportPreview.value = `Posted property: ${job.propertyName}
+Assigned by: ${job.assignedBy}
+Operator: ${job.operator}
+Photo package: ${selectedImages} selected photos; caption file ${job.hasCaptionDoc ? "present" : "missing"}
+Facebook URL: ${job.facebookLink || "[pending]"}
+Status: ${job.status}`;
+  refs.trackerStatus.textContent =
+    "Preview ready. You can copy and paste the summary or save it later.";
   log("Prepared tracker and daily report preview");
 }
 
@@ -431,7 +466,9 @@ function renderActivity(activity) {
   (activity || []).forEach((item) => {
     const row = doc.createElement("div");
     row.className = "log-item";
-    row.textContent = `${item.at || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} — ${item.text}`;
+    row.textContent = `${
+      item.at || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    } — ${item.text}`;
     refs.activityLog.appendChild(row);
   });
 }
@@ -467,20 +504,28 @@ function roleCopy(role) {
 function updateWorkflowGuide() {
   const job = activeJob();
   const canDownload = workflowState.prepared && job.images.length > 0;
-  const canCopyCaption = workflowState.downloadedAssets && workflowState.generatedCaption;
+  const canCopyCaption =
+    workflowState.downloadedAssets && workflowState.generatedCaption;
   const canOpenFacebook = workflowState.copiedCaption;
-  const canEnterFacebookUrl = workflowState.copiedCaption && workflowState.openedFacebook && refs.checkPostedToFacebook.checked;
-  const canLogPost = canEnterFacebookUrl && workflowState.enteredFacebookUrl && refs.checkCaptionApproved.checked && refs.checkPhotosSelected.checked;
+  const canEnterFacebookUrl =
+    workflowState.copiedCaption &&
+    workflowState.openedFacebook &&
+    refs.checkPostedToFacebook.checked;
+  const canLogPost =
+    canEnterFacebookUrl &&
+    workflowState.enteredFacebookUrl &&
+    refs.checkCaptionApproved.checked &&
+    refs.checkPhotosSelected.checked;
   refs.facebookUrlGroup.hidden = !canEnterFacebookUrl;
   refs.logButton.disabled = !canLogPost;
-  setStepState("download", workflowState.downloadedAssets, canDownload);
-  setStepState("copy", workflowState.copiedCaption, canCopyCaption);
-  setStepState("facebook", workflowState.openedFacebook, canOpenFacebook);
-  setStepState("url", workflowState.enteredFacebookUrl, canEnterFacebookUrl);
-  setStepState("log", workflowState.loggedPost, canLogPost);
+  setWorkflowStep("download", workflowState.downloadedAssets, canDownload);
+  setWorkflowStep("copy", workflowState.copiedCaption, canCopyCaption);
+  setWorkflowStep("facebook", workflowState.openedFacebook, canOpenFacebook);
+  setWorkflowStep("url", workflowState.enteredFacebookUrl, canEnterFacebookUrl);
+  setWorkflowStep("log", workflowState.loggedPost, canLogPost);
 }
 
-function setStepState(name, complete, enabled) {
+function setWorkflowStep(name, complete, enabled) {
   const step = doc.querySelector(`.workflow-step[data-step="${name}"]`);
   if (!step) return;
   step.dataset.state = complete ? "complete" : enabled ? "active" : "locked";
@@ -492,7 +537,9 @@ function resetWorkflowState() {
   const job = activeJob();
   workflowState.prepared = true;
   workflowState.downloadedAssets = false;
-  workflowState.generatedCaption = Boolean(job.finalCaption || job.variants.length);
+  workflowState.generatedCaption = Boolean(
+    job.finalCaption || job.variants.length
+  );
   workflowState.copiedCaption = false;
   workflowState.openedFacebook = false;
   workflowState.enteredFacebookUrl = false;
@@ -509,13 +556,15 @@ async function authFetch(url, options = {}) {
     const token = await currentUser.getIdToken();
     headers.set("Authorization", `Bearer ${token}`);
   }
-  headers.set("X-Demo-Role", selectedRole);
+  headers.set("X-Demo-Role", session.user?.role || "user");
   return fetch(url, { ...options, headers });
 }
 
 async function jsonFromResponse(response) {
   const contentType = response.headers.get("content-type") || "";
-  const data = contentType.includes("application/json") ? await response.json() : { detail: await response.text() };
+  const data = contentType.includes("application/json")
+    ? await response.json()
+    : { detail: await response.text() };
   return { ok: response.ok, data };
 }
 
@@ -530,12 +579,88 @@ async function requestJson(url, options = {}) {
   }
 }
 
-async function loadSession() {
+async function handleLoginSubmit() {
+  const email = refs.loginEmail.value.trim();
+  const password = refs.loginPassword.value;
+  if (!email || !password) {
+    refs.loginError.textContent = "Enter both email and password.";
+    refs.loginError.hidden = false;
+    return;
+  }
+  refs.loginLoader.hidden = false;
+  refs.loginError.hidden = true;
+  try {
+    const response = await jsonFromResponse(
+      await authFetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      })
+    );
+    if (!response.ok) {
+      refs.loginError.textContent = response.data?.detail || "Login failed.";
+      refs.loginError.hidden = false;
+      return;
+    }
+    session.user = {
+      uid: response.data.email,
+      email: response.data.email,
+      role: response.data.role || "user",
+      display_name: response.data.email,
+    };
+    isLoggedIn = true;
+    renderSession();
+    syncLoginView();
+    log("Signed in as " + session.user.email);
+  } catch (error) {
+    refs.loginError.textContent = error.message || "Unable to reach the server.";
+    refs.loginError.hidden = false;
+  } finally {
+    refs.loginLoader.hidden = true;
+  }
+}
+
+async function handleSignOut() {
+  try {
+    await authFetch("/api/logout", { method: "POST" });
+  } catch {
+    // best-effort logout
+  }
+  session.user = {
+    uid: "demo-operator",
+    email: "demo@apg.local",
+    role: "user",
+    display_name: "Demo operator",
+  };
+  isLoggedIn = false;
+  renderSession();
+  syncLoginView();
+  log("Signed out");
+}
+
+async function refreshSession() {
   const response = await jsonFromResponse(await authFetch("/api/session"));
   if (response.ok && response.data.user) {
-    session = response.data;
+    session.user = response.data.user;
+    session.firebase_project_id = response.data.firebase_project_id;
   }
   renderSession();
+  syncLoginView();
+}
+
+function syncLoginView() {
+  const loggedIn = isLoggedIn;
+  refs.signInButton.hidden = loggedIn;
+  refs.signOutButton.hidden = !loggedIn;
+  refs.sessionTitle.textContent = loggedIn ? "Signed in" : "Sign in required";
+  const loginForm = doc.getElementById("login-form");
+  if (loginForm) loginForm.hidden = loggedIn;
+  const roleSelector = doc.getElementById("role-selector");
+  if (roleSelector) roleSelector.hidden = loggedIn;
+}
+
+async function loadSession() {
+  await refreshSession();
 }
 
 async function loadJobs() {
@@ -553,7 +678,9 @@ async function loadJobs() {
 
 async function loadActivity(jobId) {
   try {
-    const response = await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/activity`));
+    const response = await jsonFromResponse(
+      await authFetch(`/api/jobs/${jobId}/activity`)
+    );
     if (response.ok && Array.isArray(response.data.activity)) {
       const job = activeJob();
       job.activity = response.data.activity;
@@ -582,12 +709,18 @@ async function prepareSelectedJob(source) {
   const job = activeJob();
   setStatus("Checking property files");
   const jobId = job.id;
-  await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/validate`, { method: "POST" }));
-  const prepared = await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/prepare`, { method: "POST" }));
+  await jsonFromResponse(
+    await authFetch(`/api/jobs/${jobId}/validate`, { method: "POST" })
+  );
+  const prepared = await jsonFromResponse(
+    await authFetch(`/api/jobs/${jobId}/prepare`, { method: "POST" })
+  );
   const legacy = await authFetch("/api/prepare", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ property_name: refs.propertyName.value.trim() || job.propertyName }),
+    body: JSON.stringify({
+      property_name: refs.propertyName.value.trim() || job.propertyName,
+    }),
   });
   if (prepared.ok) {
     Object.assign(job, normalizeJob(prepared.data));
@@ -597,10 +730,16 @@ async function prepareSelectedJob(source) {
   job.status = source === "form" ? "waiting_approval" : "ready-to-post";
   activeJobId = job.id;
   workflowState.prepared = true;
-  workflowState.generatedCaption = Boolean(job.finalCaption || job.variants.length);
+  workflowState.generatedCaption = Boolean(
+    job.finalCaption || job.variants.length
+  );
   hydrateForm();
   renderAll();
-  setStatus(prepared.ok || legacy.ok ? "Property files ready" : "Demo property files ready");
+  setStatus(
+    prepared.ok || legacy.ok
+      ? "Property files ready"
+      : "Demo property files ready"
+  );
 }
 
 function formPayload() {
@@ -617,36 +756,111 @@ function setStatus(message) {
   refs.connectionStatus.textContent = message;
 }
 
+async function ensureFirebase() {
+  const missingConfig = Object.values(firebaseConfig).some((value) => !value);
+  if (missingConfig) {
+    setStatus("Demo mode is active");
+    refs.userLabel.textContent =
+      "Demo mode is active. You can explore the workspace with sample data right away.";
+    return false;
+  }
+
+  if (!app) {
+    const { initializeApp } = await import("firebase/app");
+    app = initializeApp(firebaseConfig);
+  }
+  if (!auth) {
+    const { getAuth } = await import("firebase/auth");
+    auth = getAuth(app);
+  }
+  return true;
+}
+
+async function signInWithEmail() {
+  loginError = "";
+  renderLoginError();
+  refs.loginLoader.hidden = false;
+  refs.loginSubmit.disabled = true;
+  try {
+    const response = await jsonFromResponse(
+      await authFetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: refs.loginEmail.value.trim(),
+          password: refs.loginPassword.value,
+        }),
+      })
+    );
+    if (!response.ok) {
+      loginError = response.data?.detail || "Sign-in failed. Please try again.";
+      renderLoginError();
+      setStatus("Sign-in failed");
+      return;
+    }
+    session.user = {
+      uid: response.data.email,
+      email: response.data.email,
+      role: response.data.role || "user",
+      display_name: response.data.email,
+    };
+    isLoggedIn = true;
+    syncLoginView();
+    await refreshSession();
+    await loadJobs();
+    setStatus("Signed in");
+  } catch (error) {
+    loginError = error?.message || "Sign-in failed. Please try again.";
+    renderLoginError();
+    setStatus("Sign-in failed");
+  } finally {
+    refs.loginLoader.hidden = true;
+    refs.loginSubmit.disabled = false;
+  }
+}
+
+async function signOut() {
+  currentUser = null;
+  isLoggedIn = false;
+  try {
+    await authFetch("/api/logout", { method: "POST" });
+  } catch {
+    // best-effort logout
+  }
+  session.user = {
+    uid: "demo-operator",
+    email: "demo@apg.local",
+    role: "user",
+    display_name: "Demo operator",
+  };
+  syncLoginView();
+  await refreshSession();
+  await loadJobs();
+  setStatus("Signed out");
+}
+
+function renderLoginError() {
+  refs.loginError.textContent = loginError;
+  refs.loginError.hidden = !loginError;
+}
+
 if (auth) {
   onAuthStateChanged(auth, async (user) => {
     currentUser = user;
-    refs.signInButton.hidden = Boolean(user);
-    refs.signOutButton.hidden = !user;
-    const roleSelector = doc.getElementById("role-selector");
-    if (roleSelector) roleSelector.hidden = Boolean(user);
-    if (user) applyRoleGating();
-    await loadSession();
+    syncLoginView();
+    await refreshSession();
     await loadJobs();
   });
-  } else {
-    refs.userLabel.textContent = "Demo mode is active. You can explore the workspace with sample data right away.";
-  }
+} else {
+  await ensureFirebase();
+  syncLoginView();
+  await refreshSession();
+  await loadJobs();
+}
 
-refs.signInButton.addEventListener("click", async () => {
-      if (!auth) {
-        setStatus("Demo mode is active");
-        return;
-      }
-  await signInWithPopup(auth, provider);
-});
-
-refs.signOutButton.addEventListener("click", async () => {
-  if (auth) {
-    await signOut(auth);
-  }
-  const roleSelector = doc.getElementById("role-selector");
-  if (roleSelector) roleSelector.hidden = false;
-});
+refs.signInButton.addEventListener("click", signInWithEmail);
+refs.signOutButton.addEventListener("click", signOut);
+refs.loginSubmit.addEventListener("click", signInWithEmail);
 
 el("themeToggle").addEventListener("click", () => {
   const root = doc.documentElement;
@@ -663,17 +877,17 @@ doc.querySelectorAll("[data-role-option]").forEach((btn) => {
     });
     btn.classList.add("active");
     btn.setAttribute("aria-pressed", "true");
-    selectedRole = btn.dataset.role || "user";
-    session.user.role = selectedRole;
+    const role = btn.dataset.role || "user";
+    session.user.role = role;
     renderSession();
     applyRoleGating();
   });
 });
 
 function applyRoleGating() {
-  const isAdmin = selectedRole === "admin";
-  doc.querySelectorAll("[data-admin-only]").forEach((el) => {
-    el.hidden = !isAdmin;
+  const isAdmin = session.user?.role === "admin";
+  doc.querySelectorAll("[data-admin-only]").forEach((node) => {
+    node.hidden = !isAdmin;
   });
 }
 
@@ -712,12 +926,16 @@ generateCaptionButton.addEventListener("click", async () => {
   syncFormToJob();
   const job = activeJob();
   const jobId = job.id;
-  const response = await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/captions`, { method: "POST" }));
+  const response = await jsonFromResponse(
+    await authFetch(`/api/jobs/${jobId}/captions`, { method: "POST" })
+  );
   const variants = response.ok ? normalizeVariants(response.data) : [];
   if (variants.length > 0) {
     job.variants = variants;
   } else if (!job.variants.length) {
-    job.variants = buildVariants(job.details || refs.captionDetails.value || "Property details pending");
+    job.variants = buildVariants(
+      job.details || refs.captionDetails.value || "Property details pending"
+    );
   }
   workflowState.generatedCaption = true;
   renderVariants();
@@ -731,7 +949,9 @@ generateCaptionButton.addEventListener("click", async () => {
 el("checkRulesBtn").addEventListener("click", () => {
   syncFormToJob();
   const issues = checkCaptionRules(refs.finalCaption.value.trim());
-  refs.captionRuleResult.textContent = issues.length ? "Caption check: " + issues.join(" ") : "Caption check passed. No restricted words or symbols found.";
+  refs.captionRuleResult.textContent = issues.length
+    ? "Caption check: " + issues.join(" ")
+    : "Caption check passed. No restricted words or symbols found.";
   if (!issues.length && refs.finalCaption.value.trim()) {
     activeJob().status = "ready-to-post";
     refs.checkCaptionApproved.checked = true;
@@ -743,12 +963,12 @@ el("checkRulesBtn").addEventListener("click", () => {
   toast(issues.length ? "Caption has issues." : "Caption check passed.");
 });
 
-el("copyCaptionBtn").addEventListener("click", () => {
+el("copyCaptionBtn").addEventListener("click", async () => {
   if (!workflowState.generatedCaption) {
     toast("Generate the caption first");
     return;
   }
-  copyText(refs.finalCaption.value.trim(), "Caption copied.");
+  await copyText(refs.finalCaption.value.trim(), "Caption copied.");
   workflowState.copiedCaption = true;
   refs.checkCaptionApproved.checked = true;
   updateWorkflowGuide();
@@ -756,7 +976,15 @@ el("copyCaptionBtn").addEventListener("click", () => {
 
 el("copyChecklistBtn").addEventListener("click", () => {
   const job = activeJob();
-  const packet = `Property: ${job.propertyName}\nAssigned by: ${job.assignedBy}\nPhotos: ${job.images.filter((i) => i.selected).length}\nCaption:\n${job.finalCaption || "[pending caption]"}\n\nReminder:\n1. Post to Facebook manually\n2. Paste the live Facebook URL back here`;
+  const packet = `Property: ${job.propertyName}
+Assigned by: ${job.assignedBy}
+Photos: ${job.images.filter((i) => i.selected).length}
+Caption:
+${job.finalCaption || "[pending caption]"}
+
+Reminder:
+1. Post to Facebook manually
+2. Paste the live Facebook URL back here`;
   copyText(packet, "Posting checklist copied.");
 });
 
@@ -765,7 +993,11 @@ el("openFacebookBtn").addEventListener("click", () => {
     toast("Copy the caption before opening Facebook");
     return;
   }
-  window.open("https://www.facebook.com/alphapremierRealty/", "_blank", "noopener,noreferrer");
+  window.open(
+    "https://www.facebook.com/alphapremierRealty/",
+    "_blank",
+    "noopener,noreferrer"
+  );
   workflowState.openedFacebook = true;
   refs.checkPostedToFacebook.checked = true;
   updateWorkflowGuide();
@@ -777,16 +1009,23 @@ refs.logButton.addEventListener("click", async () => {
   syncFormToJob();
   const job = activeJob();
   const selectedCount = job.images.filter((i) => i.selected).length;
-  if (!refs.checkCaptionApproved.checked || selectedCount < 3 || !refs.checkPostedToFacebook.checked || !job.facebookLink.trim()) {
+  if (
+    !refs.checkCaptionApproved.checked ||
+    selectedCount < 3 ||
+    !refs.checkPostedToFacebook.checked ||
+    !job.facebookLink.trim()
+  ) {
     toast("Complete the posting checklist first.");
     return;
   }
   const jobId = job.id;
-  const response = await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/mark-posted`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ facebook_url: job.facebookLink }),
-  }));
+  const response = await jsonFromResponse(
+    await authFetch(`/api/jobs/${jobId}/mark-posted`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ facebook_url: job.facebookLink }),
+    })
+  );
   await authFetch("/api/log", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -807,8 +1046,12 @@ el("prepareTrackerBtn").addEventListener("click", () => {
   toast("Post log preview prepared.");
 });
 
-el("copyTrackerRowBtn").addEventListener("click", () => copyText(refs.trackerPreview.value, "Posted summary copied."));
-el("copyDailyReportBtn").addEventListener("click", () => copyText(refs.dailyReportPreview.value, "End-of-day note copied."));
+el("copyTrackerRowBtn").addEventListener("click", () =>
+  copyText(refs.trackerPreview.value, "Posted summary copied.")
+);
+el("copyDailyReportBtn").addEventListener("click", () =>
+  copyText(refs.dailyReportPreview.value, "End-of-day note copied.")
+);
 
 el("clearLogBtn").addEventListener("click", () => {
   refs.activityLog.innerHTML = "";
@@ -819,11 +1062,15 @@ el("simulatePipelineBtn").addEventListener("click", async () => {
   const job = activeJob();
   setStatus("Running pipeline");
   const jobId = job.id;
-  const prepared = await jsonFromResponse(await authFetch(`/api/jobs/${jobId}/prepare`, { method: "POST" }));
+  const prepared = await jsonFromResponse(
+    await authFetch(`/api/jobs/${jobId}/prepare`, { method: "POST" })
+  );
   if (prepared.ok) {
     Object.assign(job, normalizeJob(prepared.data));
     if (!job.variants.length) {
-      job.variants = buildVariants(job.details || refs.captionDetails.value || "Property details pending");
+      job.variants = buildVariants(
+        job.details || refs.captionDetails.value || "Property details pending"
+      );
     }
     if (!job.finalCaption && job.variants.length) {
       job.finalCaption = job.variants[0];
@@ -832,11 +1079,13 @@ el("simulatePipelineBtn").addEventListener("click", async () => {
     toast(prepared.data?.detail || "Property check failed. Please review the details and try again.");
   }
   workflowState.prepared = Boolean(prepared.ok);
-  workflowState.generatedCaption = Boolean(job.finalCaption || job.variants.length);
+  workflowState.generatedCaption = Boolean(
+    job.finalCaption || job.variants.length
+  );
   hydrateForm();
   renderAll();
-setStatus(prepared.ok ? "Property files ready" : "Property check failed");
-    toast(prepared.ok ? "Property check complete." : "Property check failed.");
+  setStatus(prepared.ok ? "Property files ready" : "Property check failed");
+  toast(prepared.ok ? "Property check complete." : "Property check failed.");
 });
 
 el("newJobBtn").addEventListener("click", () => {
@@ -890,32 +1139,38 @@ refs.zipDownload.addEventListener("click", (event) => {
   log("Photo package downloaded");
 });
 
-[refs.checkCaptionApproved, refs.checkPhotosSelected, refs.checkPostedToFacebook].forEach((checkbox) => {
-  checkbox.addEventListener("change", updateWorkflowGuide);
+[refs.checkCaptionApproved, refs.checkPhotosSelected, refs.checkPostedToFacebook].forEach(
+  (checkbox) => {
+    checkbox.addEventListener("change", updateWorkflowGuide);
+  }
+);
+
+doc.documentElement.setAttribute(
+  "data-theme",
+  localStorage.getItem("apg-theme") || "light"
+);
+
+const workflowNav = {
+  nextToPhotos: "photos",
+  backToDetails: "details",
+  nextToCaption: "caption",
+  backToPhotos: "photos",
+  nextToPublish: "publish",
+  backToCaption: "caption",
+  nextToLog: "log",
+  backToPublish: "publish",
+};
+
+Object.entries(workflowNav).forEach(([buttonId, targetStep]) => {
+  const btn = el(buttonId);
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    setActiveStep(targetStep);
+    updateWorkflowTabs();
+  });
 });
 
-  doc.documentElement.setAttribute("data-theme", localStorage.getItem("apg-theme") || "light");
-
-  const workflowNav = {
-    nextToPhotos: "photos",
-    backToDetails: "details",
-    nextToCaption: "caption",
-    backToPhotos: "photos",
-    nextToPublish: "publish",
-    backToCaption: "caption",
-    nextToLog: "log",
-    backToPublish: "publish",
-  };
-
-  Object.entries(workflowNav).forEach(([buttonId, targetStep]) => {
-    const btn = el(buttonId);
-    if (!btn) return;
-    btn.addEventListener("click", () => {
-      setActiveStep(targetStep);
-      updateWorkflowTabs();
-    });
-  });
-
-  renderAll();
-  log("Console initialized");
-  prepareTrackerPreview();
+setStatus("Ready when you are");
+renderAll();
+log("Console initialized");
+prepareTrackerPreview();
