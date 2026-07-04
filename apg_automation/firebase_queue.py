@@ -1,12 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-
-@dataclass(frozen=True)
-class PropertyQueueItem:
-    id: str
-    property_name: str
+from .models import PropertyQueueItem
 
 
 class FirestorePropertyQueue:

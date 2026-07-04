@@ -21,10 +21,10 @@ def test_vite_config_proxies_api_and_prepared_assets():
 def test_frontend_entry_exists_and_calls_prepare_and_log_routes():
     source = Path("src/main.js").read_text(encoding="utf-8")
 
-    assert "GoogleAuthProvider" in source
-    assert "setCustomParameters" in source
-    assert "hd:" in source
-    assert "getIdToken" in source
+    assert "createClient" in source
+    assert "@supabase/supabase-js" in source
+    assert "signInWithPassword" in source
+    assert "access_token" in source
     assert "Authorization" in source
     assert 'authFetch("/api/prepare"' in source
     assert 'authFetch("/api/log"' in source

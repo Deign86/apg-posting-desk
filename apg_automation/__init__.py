@@ -9,4 +9,10 @@ __all__ = [
     "queue_manager",
     "tracker_updater",
     "web_app",
+    "supabase_client",
+    "supabase_auth",
+    "supabase_job_store",
+    "supabase_queue",
+    "supabase_tracking",
 ]
+

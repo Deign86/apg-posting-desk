@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import shutil
 import uuid
@@ -10,12 +10,11 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .firebase_auth import FirebaseTokenVerifier, require_firebase_user, require_role
+from .auth_deps import require_role
 from .job_store import InMemoryJobStore
 from .review_pipeline import PreparedPost, ReviewPipeline
 
 STATIC_DIR = Path(__file__).parent / "static"
-DEFAULT_FIREBASE_PROJECT_ID = "apg-posting-desk-deign-2026"
 
 
 class PrepareRequest(BaseModel):
@@ -62,13 +61,12 @@ def create_app(
     drive,
     caption_generator,
     tracker,
-    auth_verifier: FirebaseTokenVerifier | None = None,
+    auth_verifier=None,
     queue=None,
     job_store=None,
     auth_required: bool = False,
     download_root: Path = Path("prepared"),
     static_dir: Path = STATIC_DIR,
-    firebase_project_id: str = DEFAULT_FIREBASE_PROJECT_ID,
 ) -> FastAPI:
     (download_root / "_public").mkdir(parents=True, exist_ok=True)
     static_dir.mkdir(parents=True, exist_ok=True)
@@ -98,8 +96,12 @@ def create_app(
             "display_name": _demo_display_names.get(role, "Demo User"),
         }
 
+    def _supabase_user_dep(v):
+        from .supabase_auth import require_supabase_user
+        return require_supabase_user(v)
+
     user_dependency = (
-        require_firebase_user(auth_verifier)
+        _supabase_user_dep(auth_verifier)
         if auth_required and auth_verifier is not None
         else _demo_user
     )
@@ -107,7 +109,7 @@ def create_app(
 
     @app.get("/api/session")
     def session(user=Depends(user_dependency)) -> dict:
-        return {"user": user, "firebase_project_id": firebase_project_id}
+        return {"user": user}
 
     @app.post("/api/login")
     def login(request: LoginRequest) -> dict:
@@ -119,17 +121,26 @@ def create_app(
 
     @app.post("/api/admin/users", status_code=201)
     def create_user(request: CreateUserRequest, user=Depends(admin_dependency)) -> dict:
-        return {
-            "uid": "seed-admin",
-            "email": request.email,
-            "role": request.role,
-            "display_name": request.display_name or request.email,
-            "status": "created",
-        }
+        if auth_verifier is None:
+            return {
+                "uid": "seed-admin",
+                "email": request.email,
+                "role": request.role,
+                "display_name": request.display_name or request.email,
+                "status": "demo-created",
+            }
+        return auth_verifier.create_user(
+            email=request.email,
+            password=request.password,
+            role=request.role,
+            display_name=request.display_name,
+        )
 
     @app.post("/api/admin/seed")
     def seed_accounts(user=Depends(admin_dependency)) -> dict:
-        return {"seeded": 2, "accounts": ["admin@apg.local", "maam.jean@apg.local"]}
+        if auth_verifier is None:
+            return {"seeded": 2, "accounts": ["admin@apg.local", "maam.jean@apg.local"]}
+        return auth_verifier.seed_accounts()
 
     @app.post("/api/prepare")
     def prepare(request: PrepareRequest, user=Depends(user_dependency)) -> dict:
@@ -323,3 +334,7 @@ def create_app(
 
     app.mount("/prepared", StaticFiles(directory=download_root / "_public"), name="prepared")
     return app
+
+
+
+

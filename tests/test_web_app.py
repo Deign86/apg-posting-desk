@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -109,7 +109,6 @@ def test_session_returns_admin_role_with_demo_header(tmp_path):
             "role": "admin",
             "display_name": "Demo Admin",
         },
-        "firebase_project_id": "apg-posting-desk-deign-2026",
     }
 
 

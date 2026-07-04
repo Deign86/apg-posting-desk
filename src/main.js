@@ -3,19 +3,15 @@ import "./styles.css";
 const doc = document;
 const el = (id) => doc.getElementById(id);
 
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
-};
+import { createClient } from "@supabase/supabase-js";
 
-let app = null;
-let auth = null;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+const supabase = supabaseUrl ? createClient(supabaseUrl, supabaseAnonKey) : null;
 let currentUser = null;
 
 const session = {
-  firebase_project_id: firebaseConfig.projectId || "demo",
+  supabase_url: supabaseUrl || "demo",
   user: {
     uid: "demo-operator",
     email: "demo@apg.local",
@@ -82,6 +78,8 @@ const refs = {
   loginLoader: el("loginLoader"),
 };
 
+
+let selectedRole = "user";
 const workflowState = {
   prepared: true,
   downloadedAssets: false,
@@ -319,6 +317,12 @@ function syncFormToJob() {
 
 function renderValidation() {
   const job = activeJob();
+  if (!job) {
+    refs.validationSteps.innerHTML = "";
+    refs.folderStatusBadge.className = "badge err";
+    refs.folderStatusBadge.textContent = "Property check pending";
+    return;
+  }
   const checks = [
     { label: "Property folder link added", ok: !!job.driveUrl },
     { label: "At least 3 photos found", ok: job.imageCount >= 3 },
@@ -342,6 +346,12 @@ function renderValidation() {
 
 function renderThumbs() {
   const job = activeJob();
+  if (!job) {
+    refs.thumbs.innerHTML = "";
+    refs.imageCounterBadge.textContent = "0 selected";
+    refs.assetSummary.textContent = "No asset package loaded yet.";
+    return;
+  }
   refs.thumbs.innerHTML = "";
   job.images.forEach((img, index) => {
     const card = doc.createElement("div");
@@ -490,7 +500,7 @@ function renderSession() {
   const role = session.user?.role || "user";
   const name = session.user?.display_name || session.user?.email || "Demo operator";
   refs.roleBadge.textContent = role;
-  refs.userLabel.textContent = `${name} · ${roleCopy(role)} · ${session.firebase_project_id || "demo"}`;
+  refs.userLabel.textContent = `${name} · ${roleCopy(role)} · ${session.supabase_url || "demo"}`;
   refs.sessionTitle.textContent = "Role access";
   applyRoleGating();
 }
@@ -553,10 +563,10 @@ function resetWorkflowState() {
 async function authFetch(url, options = {}) {
   const headers = new Headers(options.headers || {});
   if (currentUser) {
-    const token = await currentUser.getIdToken();
+    const token = await currentUser.access_token;
     headers.set("Authorization", `Bearer ${token}`);
   }
-  headers.set("X-Demo-Role", session.user?.role || "user");
+  headers.set("X-Demo-Role", selectedRole);
   return fetch(url, { ...options, headers });
 }
 
@@ -642,7 +652,7 @@ async function refreshSession() {
   const response = await jsonFromResponse(await authFetch("/api/session"));
   if (response.ok && response.data.user) {
     session.user = response.data.user;
-    session.firebase_project_id = response.data.firebase_project_id;
+    session.supabase_url = response.data.supabase_url;
   }
   renderSession();
   syncLoginView();
@@ -782,28 +792,42 @@ async function signInWithEmail() {
   refs.loginLoader.hidden = false;
   refs.loginSubmit.disabled = true;
   try {
-    const response = await jsonFromResponse(
-      await authFetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: refs.loginEmail.value.trim(),
-          password: refs.loginPassword.value,
-        }),
-      })
-    );
-    if (!response.ok) {
-      loginError = response.data?.detail || "Sign-in failed. Please try again.";
-      renderLoginError();
-      setStatus("Sign-in failed");
-      return;
+    if (supabase) {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: refs.loginEmail.value.trim(),
+        password: refs.loginPassword.value,
+      });
+      if (error) throw error;
+      session.user = {
+        uid: data.user.id,
+        email: data.user.email,
+        role: "user",
+        display_name: data.user.email,
+      };
+    } else {
+      const response = await jsonFromResponse(
+        await authFetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: refs.loginEmail.value.trim(),
+            password: refs.loginPassword.value,
+          }),
+        })
+      );
+      if (!response.ok) {
+        loginError = response.data?.detail || "Sign-in failed. Please try again.";
+        renderLoginError();
+        setStatus("Sign-in failed");
+        return;
+      }
+      session.user = {
+        uid: response.data.email,
+        email: response.data.email,
+        role: response.data.role || "user",
+        display_name: response.data.email,
+      };
     }
-    session.user = {
-      uid: response.data.email,
-      email: response.data.email,
-      role: response.data.role || "user",
-      display_name: response.data.email,
-    };
     isLoggedIn = true;
     syncLoginView();
     await refreshSession();
@@ -822,6 +846,9 @@ async function signInWithEmail() {
 async function signOut() {
   currentUser = null;
   isLoggedIn = false;
+  if (supabase) {
+    await supabase.auth.signOut();
+  }
   try {
     await authFetch("/api/logout", { method: "POST" });
   } catch {
@@ -877,15 +904,15 @@ doc.querySelectorAll("[data-role-option]").forEach((btn) => {
     });
     btn.classList.add("active");
     btn.setAttribute("aria-pressed", "true");
-    const role = btn.dataset.role || "user";
-    session.user.role = role;
+    selectedRole = btn.dataset.role || "user";
+    session.user.role = selectedRole;
     renderSession();
     applyRoleGating();
   });
 });
 
 function applyRoleGating() {
-  const isAdmin = session.user?.role === "admin";
+  const isAdmin = selectedRole === "admin" || selectedRole === "maam_jean";
   doc.querySelectorAll("[data-admin-only]").forEach((node) => {
     node.hidden = !isAdmin;
   });

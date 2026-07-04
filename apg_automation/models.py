@@ -1,7 +1,13 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+
+
+@dataclass(frozen=True)
+class PropertyQueueItem:
+    id: str
+    property_name: str
 
 
 @dataclass(frozen=True)
@@ -38,4 +44,3 @@ class QueueItem:
 class QueueBuildResult:
     ready: list[QueueItem]
     errors: dict[str, str]
-

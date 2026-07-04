@@ -17,6 +17,7 @@ timezone: UTC
         encoding="utf-8",
     )
     monkeypatch.setenv("AI_MODEL", "env-model")
+    monkeypatch.delenv("TIMEZONE", raising=False)
 
     config = load_config(config_path)
 
@@ -42,6 +43,9 @@ def test_cli_parser_accepts_properties_file_flag():
 
 def test_runtime_config_validation_requires_nvidia_key_for_caption_generation(monkeypatch):
     config = load_config("missing.yaml")
+    monkeypatch.setenv("SUPABASE_URL", "https://test.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "test-key")
+    monkeypatch.setenv("SUPABASE_ANON_KEY", "test-anon")
     monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
 
     with pytest.raises(ValueError, match="NVIDIA_API_KEY"):
@@ -50,6 +54,9 @@ def test_runtime_config_validation_requires_nvidia_key_for_caption_generation(mo
 
 def test_runtime_config_validation_allows_captionless_dry_run(monkeypatch):
     config = load_config("missing.yaml")
+    monkeypatch.setenv("SUPABASE_URL", "https://test.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "test-key")
+    monkeypatch.setenv("SUPABASE_ANON_KEY", "test-anon")
     monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
 
     validate_runtime_config(config, dry_run=True)

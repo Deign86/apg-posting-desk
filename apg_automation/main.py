@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 from pathlib import Path
@@ -12,8 +12,6 @@ from .google_drive import GoogleDriveRepository, build_drive_service
 from .google_tracking import GoogleDocsClient, GoogleSheetsClient, build_docs_service, build_sheets_service
 from .local_folder import LocalFolderRepository
 from .logging_config import configure_logging
-from .firebase_auth import FirebaseTokenVerifier
-from .firebase_queue import FirestorePropertyQueue, build_firestore_client
 from .queue_manager import QueueManager
 from .tracker_updater import TrackerUpdater
 from .web_app import create_app
@@ -24,8 +22,7 @@ class DemoCaptionGenerator:
         from .caption_generator import CaptionReview
 
         safe_details = caption_details.replace("least term", "lease terms").replace(
-            "negotiables",
-            "terms",
+            "negotiables", "terms",
         )
         return CaptionReview(
             "Property listing prepared for manual posting.\n\n" + safe_details.strip()
@@ -57,17 +54,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", default="config.yaml", help="Config YAML path")
     parser.add_argument("--host", default="0.0.0.0", help="PWA server host")
     parser.add_argument("--port", default=8000, type=int, help="PWA server port")
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Validate property queue without generating captions or logging",
-    )
+    parser.add_argument("--dry-run", action="store_true", help="Validate property queue without generating captions or logging")
     parser.add_argument("--serve", action="store_true", help="Start the PWA server")
-    parser.add_argument(
-        "--demo",
-        action="store_true",
-        help="Start the PWA with local source and no external credentials",
-    )
+    parser.add_argument("--demo", action="store_true", help="Start the PWA with local source and no external credentials")
     return parser
 
 
@@ -118,8 +107,19 @@ def main() -> int:
         tracker = ConsoleTracker()
         auth_verifier = None
         queue = None
+        job_store = None
         auth_required = False
     else:
+        from .supabase_client import build_supabase_client
+        from .supabase_auth import SupabaseTokenVerifier
+        from .supabase_job_store import SupabaseJobStore
+        from .supabase_queue import SupabasePropertyQueue
+        from .supabase_tracking import SupabaseTracker
+
+        supabase_client = build_supabase_client(
+            url=config.supabase.url,
+            service_role_key=config.supabase.service_role_key,
+        )
         caption_generator = CaptionGenerator(
             client=build_ai_client(config.ai.provider, config.ai.model),
             max_retries=config.processing.max_retries,
@@ -131,8 +131,9 @@ def main() -> int:
             daily_report_doc_id=config.tracking.daily_report_doc_id,
             posted_by=config.posted_by,
         )
-        auth_verifier = FirebaseTokenVerifier()
-        queue = FirestorePropertyQueue(build_firestore_client())
+        auth_verifier = SupabaseTokenVerifier(client=supabase_client)
+        queue = SupabasePropertyQueue(supabase_client)
+        job_store = SupabaseJobStore(supabase_client)
         auth_required = True
     app = create_app(
         drive=drive,
@@ -140,6 +141,7 @@ def main() -> int:
         tracker=tracker,
         auth_verifier=auth_verifier,
         queue=queue,
+        job_store=job_store,
         auth_required=auth_required,
         download_root=Path("downloads"),
     )
