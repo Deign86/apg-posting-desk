@@ -16,3 +16,4 @@ ui-debug.log
 preview.log
 server.log
 .vercel
+.env*.local

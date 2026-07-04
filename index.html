@@ -18,7 +18,49 @@
   <title>APG Posting Workspace</title>
 </head>
 <body>
-  <div class="app">
+  <div class="login-screen" id="loginScreen">
+    <div class="login-screen__card">
+      <div class="login-screen__brand">
+        <svg viewBox="0 0 64 64" fill="none" aria-hidden="true" class="login-screen__logo">
+          <rect x="6" y="10" width="22" height="44" rx="8" stroke="currentColor" stroke-width="4"/>
+          <path d="M36 54V18l10-8 12 10v34" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M16 22h2M16 30h2M16 38h2M46 28h2M46 36h2" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+        <h1 class="login-screen__title">APG Posting Workspace</h1>
+        <p class="login-screen__subtitle">Sign in to manage property postings</p>
+      </div>
+
+      <form class="login-screen__form" id="loginForm" onsubmit="return false;">
+        <div class="field">
+          <label for="loginEmail">Email</label>
+          <input class="input" id="loginEmail" type="email" autocomplete="email" placeholder="you@apg.com" />
+        </div>
+        <div class="field">
+          <label for="loginPassword">Password</label>
+          <input class="input" id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••" />
+        </div>
+        <p id="loginError" class="helper login-screen__error" hidden></p>
+        <button id="loginSubmit" class="btn btn-primary login-screen__submit" type="button">Sign in</button>
+        <button id="loginLoader" class="btn login-screen__submit" type="button" hidden disabled>
+          <span class="login-screen__spinner"></span> Signing in...
+        </button>
+      </form>
+
+      <div class="login-screen__divider"><span>or continue with demo</span></div>
+
+      <div class="login-screen__demo">
+        <div class="login-screen__demo-label">Demo role</div>
+        <div class="login-screen__demo-buttons">
+          <button class="btn login-screen__demo-btn" data-role="user" data-role-option>User</button>
+          <button class="btn login-screen__demo-btn" data-role="admin" data-role-option>Admin</button>
+        </div>
+      </div>
+
+      <button class="login-screen__theme-toggle" type="button" id="loginThemeToggle" aria-label="Toggle theme">Toggle theme</button>
+    </div>
+  </div>
+
+  <div class="app" id="appContent" hidden>
     <aside class="sidebar">
       <div class="brand">
         <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
@@ -32,42 +74,19 @@
         </div>
       </div>
 
-<section class="auth-card" aria-labelledby="sessionTitleLogin">
-  <div class="row-top">
-    <div>
-      <div class="muted mono" style="margin-bottom:.2rem;">Session</div>
-      <div class="mono" id="sessionTitle">Role access</div>
-    </div>
-    <span id="roleBadge" class="badge">user</span>
-  </div>
-  <div id="userLabel" class="helper" style="margin-top:.5rem;">Use your APG account to continue.</div>
-  <div id="login-form" class="login-form" style="margin-top:.75rem; display:flex; flex-direction:column; gap:.75rem;">
-    <div class="field">
-      <label for="loginEmail">Email</label>
-      <input class="input" id="loginEmail" type="email" autocomplete="email" />
-    </div>
-    <div class="field">
-      <label for="loginPassword">Password</label>
-      <input class="input" id="loginPassword" type="password" autocomplete="current-password" />
-    </div>
-    <button id="loginSubmit" class="btn btn-primary" type="button">Sign in</button>
-    <p id="loginError" class="helper" style="color:var(--color-error);" hidden></p>
-    <button id="loginLoader" class="mini-btn" type="button" hidden>Signing in...</button>
-  </div>
-  <div class="toolbar" style="margin-top:.75rem;">
-  <div id="role-selector" style="margin-top:.75rem;">
-    <div class="muted mono" style="margin-bottom:.3rem;">Demo role</div>
-    <div style="display:flex; gap:.5rem;">
-      <button class="mini-btn" data-role="user" data-role-option>User</button>
-      <button class="mini-btn" data-role="admin" data-role-option>Admin</button>
-      <button class="mini-btn" data-role="maam_jean" data-role-option>Ma'am Jean</button>
-    </div>
-  </div>
-
-    <button id="signInButton" class="mini-btn" type="button" hidden>Sign in</button>
-    <button id="signOutButton" class="mini-btn" type="button" hidden>Sign out</button>
-  </div>
-</section>
+      <section class="auth-card" aria-labelledby="sessionTitleLogin">
+        <div class="row-top">
+          <div>
+            <div class="muted mono" style="margin-bottom:.2rem;">Session</div>
+            <div class="mono" id="sessionTitle">Sign in required</div>
+          </div>
+          <span id="roleBadge" class="badge">user</span>
+        </div>
+        <div id="userLabel" class="helper" style="margin-top:.5rem;">Signed in to APG workspace.</div>
+        <div class="toolbar" style="margin-top:.75rem;">
+          <button id="signOutButton" class="mini-btn" type="button">Sign out</button>
+        </div>
+      </section>
 
 
       <button class="theme-toggle" type="button" id="themeToggle" aria-label="Toggle theme">Toggle theme</button>

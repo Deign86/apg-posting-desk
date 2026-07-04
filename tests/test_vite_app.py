@@ -97,7 +97,6 @@ def test_frontend_source_declares_role_and_job_api_contracts():
     source = Path("src/main.js").read_text(encoding="utf-8")
 
     assert "admin" in source
-    assert "maam_jean" in source
     assert "user" in source
     assert 'authFetch("/api/session"' in source
     assert 'authFetch("/api/jobs"' in source
@@ -110,16 +109,18 @@ def test_frontend_source_declares_role_and_job_api_contracts():
 
 def test_auth_card_contains_role_selector():
     html = (Path("index.html")).read_text(encoding="utf-8")
-    assert "role-selector" in html, "Auth card must contain the role selector container"
-    assert "data-role-option" in html, "Auth card must contain role option buttons with data-role-option attribute"
+    assert "data-role-option" in html, "Login screen must contain role option buttons with data-role-option attribute"
     assert 'data-role="user"' in html, "Must offer the 'user' role option"
     assert 'data-role="admin"' in html, "Must offer the 'admin' role option"
+    assert 'class="login-screen' in html, "Login must use login-screen layout"
 
 
 def test_auth_card_role_selector_hidden_when_authenticated():
     html = (Path("index.html")).read_text(encoding="utf-8")
-    # Role selector must have id="role-selector" for JS toggling
-    assert 'id="role-selector"' in html, "Role selector must have id='role-selector'"
+    # Login overlay is hidden on auth; app content becomes visible
+    assert 'id="loginScreen"' in html, "Login screen overlay must exist"
+    assert 'id="appContent"' in html, "App content must have id for toggle"
+    assert 'data-role-option' in html, "Role options must exist in login overlay"
 
 
 def test_styles_include_role_selector_rules():
@@ -157,7 +158,6 @@ def test_role_selector_click_handlers_exist():
 
 def test_role_selector_hidden_on_auth():
     source = Path("src/main.js").read_text(encoding="utf-8")
-    assert "role-selector" in source and "hidden" in source, \
-        "main.js must hide role-selector when user signs in"
-    assert "signOut" in source and "role-selector" in source, \
-        "main.js must show role-selector on sign out"
+    assert "loginScreen.hidden" in source, "main.js must toggle loginScreen when user signs in"
+    assert "appContent.hidden" in source, "main.js must toggle appContent when user signs in"
+    assert "syncLoginView" in source, "main.js must define syncLoginView function"

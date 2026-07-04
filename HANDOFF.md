@@ -268,8 +268,7 @@ firebase deploy --only hosting --project apg-posting-desk-deign-2026 --json
 - Keep `.env` secret-safe. Do not paste raw Firebase config into reports unless the user explicitly asks and it is safe.
 - The product should feel like an internal operations console, not a marketing page.
 - UI should stay dense, scannable, accessible, and workflow-first.
-- The three system personas/roles are:
+- The two system roles are:
   - `admin`
-  - `maam_jean`
   - `user`
 

@@ -66,7 +66,6 @@ const refs = {
   connectionStatus: el("connectionStatus"),
   roleBadge: el("roleBadge"),
   userLabel: el("userLabel"),
-  signInButton: el("signInButton"),
   signOutButton: el("signOutButton"),
   sessionTitle: el("sessionTitle"),
   facebookUrlGroup: el("facebookUrlGroup"),
@@ -507,7 +506,6 @@ function renderSession() {
 
 function roleCopy(role) {
   if (role === "admin") return "admin access";
-  if (role === "maam_jean") return "Ma'am Jean access";
   return "user access";
 }
 
@@ -660,13 +658,18 @@ async function refreshSession() {
 
 function syncLoginView() {
   const loggedIn = isLoggedIn;
-  refs.signInButton.hidden = loggedIn;
+  const loginScreen = doc.getElementById("loginScreen");
+  const appContent = doc.getElementById("appContent");
+  if (loginScreen) loginScreen.hidden = loggedIn;
+  if (appContent) appContent.hidden = !loggedIn;
   refs.signOutButton.hidden = !loggedIn;
   refs.sessionTitle.textContent = loggedIn ? "Signed in" : "Sign in required";
-  const loginForm = doc.getElementById("login-form");
-  if (loginForm) loginForm.hidden = loggedIn;
-  const roleSelector = doc.getElementById("role-selector");
-  if (roleSelector) roleSelector.hidden = loggedIn;
+  if (loggedIn) {
+    refs.loginEmail.value = "";
+    refs.loginPassword.value = "";
+    loginError = "";
+    renderLoginError();
+  }
 }
 
 async function loadSession() {
@@ -767,23 +770,10 @@ function setStatus(message) {
 }
 
 async function ensureFirebase() {
-  const missingConfig = Object.values(firebaseConfig).some((value) => !value);
-  if (missingConfig) {
-    setStatus("Demo mode is active");
-    refs.userLabel.textContent =
-      "Demo mode is active. You can explore the workspace with sample data right away.";
-    return false;
-  }
-
-  if (!app) {
-    const { initializeApp } = await import("firebase/app");
-    app = initializeApp(firebaseConfig);
-  }
-  if (!auth) {
-    const { getAuth } = await import("firebase/auth");
-    auth = getAuth(app);
-  }
-  return true;
+  setStatus("Demo mode is active");
+  refs.userLabel.textContent =
+    "Demo mode is active. You can explore the workspace with sample data right away.";
+  return false;
 }
 
 async function signInWithEmail() {
@@ -871,30 +861,23 @@ function renderLoginError() {
   refs.loginError.hidden = !loginError;
 }
 
-if (auth) {
-  onAuthStateChanged(auth, async (user) => {
-    currentUser = user;
-    syncLoginView();
-    await refreshSession();
-    await loadJobs();
-  });
-} else {
-  await ensureFirebase();
-  syncLoginView();
-  await refreshSession();
-  await loadJobs();
-}
+await ensureFirebase();
+syncLoginView();
+await refreshSession();
+await loadJobs();
 
-refs.signInButton.addEventListener("click", signInWithEmail);
 refs.signOutButton.addEventListener("click", signOut);
 refs.loginSubmit.addEventListener("click", signInWithEmail);
 
-el("themeToggle").addEventListener("click", () => {
+function toggleTheme() {
   const root = doc.documentElement;
   const nextTheme = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
   root.setAttribute("data-theme", nextTheme);
   localStorage.setItem("apg-theme", nextTheme);
-});
+}
+
+el("themeToggle").addEventListener("click", toggleTheme);
+el("loginThemeToggle").addEventListener("click", toggleTheme);
 
 doc.querySelectorAll("[data-role-option]").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -908,11 +891,26 @@ doc.querySelectorAll("[data-role-option]").forEach((btn) => {
     session.user.role = selectedRole;
     renderSession();
     applyRoleGating();
+    demoSignIn();
   });
 });
 
+async function demoSignIn() {
+  isLoggedIn = true;
+  session.user = {
+    uid: "demo-" + selectedRole,
+    email: "demo-" + selectedRole + "@apg.local",
+    role: selectedRole,
+    display_name: "Demo " + selectedRole,
+  };
+  syncLoginView();
+  await refreshSession();
+  await loadJobs();
+  setStatus("Signed in as " + selectedRole);
+}
+
 function applyRoleGating() {
-  const isAdmin = selectedRole === "admin" || selectedRole === "maam_jean";
+  const isAdmin = selectedRole === "admin";
   doc.querySelectorAll("[data-admin-only]").forEach((node) => {
     node.hidden = !isAdmin;
   });

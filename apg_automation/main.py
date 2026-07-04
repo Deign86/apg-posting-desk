@@ -135,6 +135,12 @@ def main() -> int:
         queue = SupabasePropertyQueue(supabase_client)
         job_store = SupabaseJobStore(supabase_client)
         auth_required = True
+        # Auto-seed accounts on startup so email/password login works immediately
+        try:
+            result = auth_verifier.seed_accounts()
+            print(f"Seeded {result['seeded']} account(s): {', '.join(result['accounts'])}")
+        except Exception as exc:
+            print(f"Seed skipped (accounts may already exist): {exc}")
     app = create_app(
         drive=drive,
         caption_generator=caption_generator,

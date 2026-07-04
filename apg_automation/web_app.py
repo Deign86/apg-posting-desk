@@ -81,14 +81,13 @@ def create_app(
     jobs = job_store if job_store is not None else InMemoryJobStore()
     _demo_display_names = {
         "admin": "Demo Admin",
-        "maam_jean": "Demo Ma'am Jean",
         "user": "Demo User",
     }
 
     def _demo_user(
         x_demo_role: str | None = Header(default=None, alias="X-Demo-Role"),
     ) -> dict:
-        role = x_demo_role if x_demo_role in ("admin", "maam_jean", "user") else "user"
+        role = x_demo_role if x_demo_role in ("admin", "user") else "user"
         return {
             "uid": "demo",
             "email": "demo@apg.local",
@@ -105,15 +104,30 @@ def create_app(
         if auth_required and auth_verifier is not None
         else _demo_user
     )
-    admin_dependency = require_role("admin", "maam_jean", user_dependency=user_dependency)
+    admin_dependency = require_role("admin", user_dependency=user_dependency)
 
     @app.get("/api/session")
     def session(user=Depends(user_dependency)) -> dict:
         return {"user": user}
 
+    _demo_seeded_accounts = {
+        "admin@apg.local": {"password": "admin@123", "role": "admin", "display_name": "Admin"},
+        "operator@apg.local": {"password": "oper@123", "role": "user", "display_name": "Operator"},
+    }
+
     @app.post("/api/login")
     def login(request: LoginRequest) -> dict:
-        return {"email": request.email, "role": "user", "status": "demo"}
+        account = _demo_seeded_accounts.get(request.email.strip().lower())
+        if account:
+            if request.password != account["password"]:
+                raise HTTPException(status_code=401, detail="Invalid email or password")
+            return {
+                "email": request.email,
+                "role": account["role"],
+                "display_name": account["display_name"],
+                "status": "demo",
+            }
+        raise HTTPException(status_code=401, detail="Invalid email or password")
 
     @app.post("/api/logout")
     def logout() -> dict:
@@ -139,7 +153,7 @@ def create_app(
     @app.post("/api/admin/seed")
     def seed_accounts(user=Depends(admin_dependency)) -> dict:
         if auth_verifier is None:
-            return {"seeded": 2, "accounts": ["admin@apg.local", "maam.jean@apg.local"]}
+            return {"seeded": 2, "accounts": ["admin@apg.local", "operator@apg.local"]}
         return auth_verifier.seed_accounts()
 
     @app.post("/api/prepare")

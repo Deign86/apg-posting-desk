@@ -30,7 +30,7 @@ activity log, and theme toggle.
 
 - `admin`: manage role bootstrap, view all jobs, override stuck jobs, inspect
   activity.
-- `maam_jean`: create and assign jobs, approve caption/assets, prepare tracker
+- `admin` can also create and assign jobs, approve caption/assets, prepare tracker
   sync.
 - `user`: process assigned jobs, validate assets, choose photos, generate and
   select captions, complete the manual publish checklist, submit Facebook URLs.

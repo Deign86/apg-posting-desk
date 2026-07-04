@@ -59,12 +59,12 @@ def test_require_firebase_user_exposes_apg_role_profile_from_claims():
     class RoleFirebaseAuth(FakeFirebaseAuth):
         def verify_id_token(self, token):
             self.tokens.append(token)
-            if token == "maam-jean-token":
+            if token == "admin-token":
                 return {
-                    "uid": "maam-jean",
-                    "email": "maam.jean@apg.example",
-                    "role": "maam_jean",
-                    "name": "Ma'am Jean",
+                    "uid": "admin-1",
+                    "email": "admin@apg.example",
+                    "role": "admin",
+                    "name": "Admin",
                 }
             raise ValueError("bad token")
 
@@ -82,15 +82,15 @@ def test_require_firebase_user_exposes_apg_role_profile_from_claims():
 
     response = TestClient(app).get(
         "/session-user",
-        headers={"Authorization": "Bearer maam-jean-token"},
+        headers={"Authorization": "Bearer admin-token"},
     )
 
     assert response.status_code == 200
     assert response.json() == {
-        "uid": "maam-jean",
-        "email": "maam.jean@apg.example",
-        "role": "maam_jean",
-        "display_name": "Ma'am Jean",
+        "uid": "admin-1",
+        "email": "admin@apg.example",
+        "role": "admin",
+        "display_name": "Admin",
     }
 
 
@@ -106,7 +106,7 @@ def test_firebase_auth_exports_role_dependency_for_admin_denial():
 def test_require_role_denies_non_admin_user():
     app = FastAPI()
     mock_user_dep = lambda: {"uid": "u1", "email": "u@apg.example", "role": "user", "display_name": "User"}
-    admin_dep = require_role("admin", "maam_jean", user_dependency=mock_user_dep)
+    admin_dep = require_role("admin", user_dependency=mock_user_dep)
 
     @app.get("/admin-only")
     def admin_only(user=Depends(admin_dep)):
@@ -119,7 +119,7 @@ def test_require_role_denies_non_admin_user():
 def test_require_role_allows_admin_user():
     app = FastAPI()
     mock_user_dep = lambda: {"uid": "a1", "email": "a@apg.example", "role": "admin", "display_name": "Admin"}
-    admin_dep = require_role("admin", "maam_jean", user_dependency=mock_user_dep)
+    admin_dep = require_role("admin", user_dependency=mock_user_dep)
 
     @app.get("/admin-only")
     def admin_only(user=Depends(admin_dep)):
@@ -130,15 +130,5 @@ def test_require_role_allows_admin_user():
     assert response.json() == {"uid": "a1"}
 
 
-def test_require_role_allows_maam_jean():
-    app = FastAPI()
-    mock_user_dep = lambda: {"uid": "mj", "email": "mj@apg.example", "role": "maam_jean", "display_name": "Ma'am Jean"}
-    admin_dep = require_role("admin", "maam_jean", user_dependency=mock_user_dep)
 
-    @app.get("/admin-only")
-    def admin_only(user=Depends(admin_dep)):
-        return {"uid": user["uid"]}
 
-    response = TestClient(app).get("/admin-only")
-    assert response.status_code == 200
-    assert response.json() == {"uid": "mj"}

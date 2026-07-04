@@ -323,18 +323,6 @@ def test_create_job_returns_201_for_admin_role(tmp_path):
     assert response.status_code == 201
 
 
-def test_create_job_returns_201_for_maam_jean_role(tmp_path):
-    client, _ = build_client(tmp_path, demo_role="maam_jean")
-    response = client.post("/api/jobs", json={
-        "property_name": "Test",
-        "assigned_by": "A",
-        "operator": "B",
-        "due_date": "2026-07-01",
-        "drive_url": "x",
-    })
-    assert response.status_code == 201
-
-
 def test_queue_next_returns_403_for_user_role(tmp_path):
     client, _ = build_client(tmp_path, demo_role="user")
     response = client.post("/api/queue/next")

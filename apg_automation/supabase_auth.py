@@ -98,7 +98,6 @@ class SupabaseTokenVerifier:
     def seed_accounts(self) -> dict:
         seeds = [
             ("admin@apg.local", "admin@123", "admin", "Admin"),
-            ("maam.jean@apg.local", "maam@123", "maam_jean", "Ma'am Jean"),
             ("operator@apg.local", "oper@123", "user", "Operator"),
         ]
         created = 0
