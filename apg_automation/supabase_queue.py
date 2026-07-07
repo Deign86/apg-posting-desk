@@ -4,7 +4,7 @@ from apg_automation.models import PropertyQueueItem
 
 
 class SupabasePropertyQueue:
-    def __init__(self, client, *, rpc_name: str = "claim_next_queue_item") -> None:
+    def __init__(self, client, *, rpc_name: str = "claim_next_job") -> None:
         self.client = client
         self.rpc_name = rpc_name
 

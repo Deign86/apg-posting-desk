@@ -27,6 +27,14 @@ class SupabaseConfig:
 
 
 @dataclass(frozen=True)
+class StorageConfig:
+    bucket_private: str = "apg-private"
+    bucket_public: str = "apg-public"
+    bucket_listings: str = "offerings"
+    signed_url_ttl_seconds: int = 3600
+
+
+@dataclass(frozen=True)
 class ProcessingConfig:
     min_images: int = 3
     max_retries: int = 3
@@ -45,6 +53,7 @@ class AppConfig:
     google_drive: GoogleDriveConfig
     tracking: TrackingConfig
     supabase: SupabaseConfig = SupabaseConfig()
+    storage: StorageConfig = StorageConfig()
     processing: ProcessingConfig = ProcessingConfig()
     ai: AIConfig = AIConfig()
     posted_by: str = "APG Automation"
@@ -108,6 +117,14 @@ def load_config(path: str | Path = "config.yaml") -> AppConfig:
             url=_value(data, "supabase.url", "SUPABASE_URL", ""),
             service_role_key=_value(data, "supabase.service_role_key", "SUPABASE_SERVICE_ROLE_KEY", ""),
             anon_key=_value(data, "supabase.anon_key", "SUPABASE_ANON_KEY", ""),
+        ),
+    storage=StorageConfig(
+        bucket_private=_value(data, "storage.bucket_private", "STORAGE_BUCKET_PRIVATE", "apg-private"),
+        bucket_public=_value(data, "storage.bucket_public", "STORAGE_BUCKET_PUBLIC", "apg-public"),
+        bucket_listings=_value(data, "storage.bucket_listings", "STORAGE_BUCKET_LISTINGS", "offerings"),
+        signed_url_ttl_seconds=int(
+                _value(data, "storage.signed_url_ttl_seconds", "STORAGE_SIGNED_URL_TTL", 3600)
+            ),
         ),
         processing=ProcessingConfig(
             min_images=int(_value(data, "processing.min_images", "MIN_IMAGES", 3)),

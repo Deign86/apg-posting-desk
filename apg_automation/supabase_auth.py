@@ -31,10 +31,10 @@ class SupabaseTokenVerifier:
         )
         rows = profile.data if profile and profile.data else []
         if rows:
-            role = rows[0].get("role", "user")
+            role = rows[0].get("role", "viewer")
             display_name = rows[0].get("display_name", "") or email or uid
         else:
-            role = "user"
+            role = "viewer"
             display_name = email or uid
         return {
             "uid": uid,
@@ -89,7 +89,7 @@ class SupabaseTokenVerifier:
                 {
                     "uid": u.id,
                     "email": u.email or "",
-                    "role": row.get("role", "user"),
+                    "role": row.get("role", "viewer"),
                     "display_name": row.get("display_name", u.email or u.id),
                 }
             )
@@ -98,7 +98,7 @@ class SupabaseTokenVerifier:
     def seed_accounts(self) -> dict:
         seeds = [
             ("admin@apg.local", "admin@123", "admin", "Admin"),
-            ("operator@apg.local", "oper@123", "user", "Operator"),
+            ("operator@apg.local", "oper@123", "staff", "Operator"),
         ]
         created = 0
         for email, pw, role, dn in seeds:

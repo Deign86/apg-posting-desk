@@ -14,5 +14,9 @@ __all__ = [
     "supabase_job_store",
     "supabase_queue",
     "supabase_tracking",
+    "supabase_assets",
+    "asset_service",
+    "folder_parser",
+    "ingest",
 ]
 

@@ -9,11 +9,24 @@ tracking:
   posting_tracker_sheet_id: "1xzzuq8KHbzrRIGMyIo0AQVgq0LQklDkW8-S9Y__7RvM"
   daily_report_doc_id: "1mctXkKFhZLCEXQtnzO4dmHhUSGOKFdFliF_qL17U68o"
 
+storage:
+  bucket_private: "apg-private"
+  bucket_public: "apg-public"
+  signed_url_ttl_seconds: 3600
+
 processing:
   min_images: 3
   max_retries: 3
   batch_size: 5
   concurrent_tasks: 3
+
+# Supabase — ONE shared project with apg-website (ref: ldtavdybcgwjgticrymz).
+# Set real values in .env (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY);
+# env vars override these placeholders. NEVER expose the service role key to the browser.
+supabase:
+  url: ""
+  service_role_key: ""
+  anon_key: ""
 
 posted_by: "APG Automation"
 timezone: "Asia/Manila"

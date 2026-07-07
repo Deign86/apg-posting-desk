@@ -15,6 +15,7 @@ class OperationalJob:
     status: str
     created_on: date
     facebook_url: str = ""
+    offering_id: str = ""          # canonical offerings.id (uuid); "" if unbound
     caption: str = ""
     caption_details: str = ""
     caption_document_name: str = ""
@@ -36,6 +37,8 @@ class OperationalJob:
         }
         if self.facebook_url:
             payload["facebook_url"] = self.facebook_url
+        if self.offering_id:
+            payload["offering_id"] = self.offering_id
         if self.caption:
             payload["caption"] = self.caption
         if self.caption_details:
@@ -87,12 +90,14 @@ class InMemoryJobStore:
         operator: str,
         due_date: str,
         drive_url: str,
+        offering_id: str = "",
     ) -> dict[str, str]:
         self._sequence += 1
         job_id = f"APG-{date.today():%m%d}-{self._sequence:03d}"
         job = OperationalJob(
             id=job_id,
-            property_name=property_name,
+                        property_name=property_name,
+            offering_id=offering_id,
             assigned_by=assigned_by,
             operator=operator,
             due_date=due_date,

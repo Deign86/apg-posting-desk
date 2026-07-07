@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import shutil
 import uuid
@@ -28,6 +28,7 @@ class LogRequest(BaseModel):
 
 class JobIntakeRequest(BaseModel):
     property_name: str
+    offering_id: str = ""
     assigned_by: str
     operator: str
     due_date: str
@@ -64,6 +65,7 @@ def create_app(
     auth_verifier=None,
     queue=None,
     job_store=None,
+    asset_service=None,
     auth_required: bool = False,
     download_root: Path = Path("prepared"),
     static_dir: Path = STATIC_DIR,
@@ -228,6 +230,7 @@ def create_app(
     def create_job(request: JobIntakeRequest, user=Depends(admin_dependency)) -> dict:
         return jobs.create(
             property_name=request.property_name.strip(),
+            offering_id=request.offering_id.strip(),
             assigned_by=request.assigned_by.strip(),
             operator=request.operator.strip(),
             due_date=request.due_date.strip(),
@@ -328,6 +331,30 @@ def create_app(
             raise HTTPException(status_code=404, detail="No pending properties")
         return {"id": item.id, "property_name": item.property_name}
 
+    @app.get("/api/offerings")
+    def list_offerings(user=Depends(user_dependency)) -> dict:
+        if asset_service is None:
+            return {"offerings": []}
+        res = asset_service.client.table("offerings").select("id,title,slug,location,category_id,transaction_type_id,is_published,deleted_at").is_("deleted_at", "null").order("title").limit(200).execute()
+        return {"offerings": res.data or []}
+
+    @app.post("/api/assets/signed-url")
+    def asset_signed_url(payload: dict, user=Depends(user_dependency)) -> dict:
+        if asset_service is None:
+            raise HTTPException(status_code=503, detail="Asset service not configured")
+        asset_id = (payload or {}).get("asset_id")
+        expires_in = int((payload or {}).get("expires_in", 3600))
+        asset = asset_service._get_asset(asset_id) if asset_id else None
+        if asset is None:
+            raise HTTPException(status_code=404, detail="Asset not found")
+        sp = asset.get("storage_path")
+        bucket = asset.get("storage_bucket", asset_service.bucket_private)
+        if asset.get("is_public") and bucket == asset_service.bucket_public:
+            url = asset_service.client.storage.from_(bucket).get_public_url(sp)
+            return {"url": url}
+        res = asset_service.client.storage.from_(bucket).create_signed_url(sp, expires_in)
+        url = res.get("signedURL") if isinstance(res, dict) else getattr(res, "signedURL", "")
+        return {"url": url}
     @app.get("/")
     def index() -> FileResponse:
         return FileResponse(static_dir / "index.html")

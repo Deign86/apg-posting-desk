@@ -117,3 +117,43 @@ python -m pytest -q
 - `static/`: installable dashboard UI, manifest, and service worker.
 - `local_folder.py`: local fixture source for testing without live Google access.
 - `google_workspace_mcp.py`: MCP-oriented Google Workspace data boundary.
+
+## Shared Supabase Backend (apg-website interop)
+
+This desk shares **one Supabase project** with `apg-website` (project ref `ldtavdybcgwjgticrymz`).
+The website owns the canonical asset model (`offerings`, `assets`, `property_asset_relations`,
+`property_asset_versions`, `raw_folder_mappings`, `import_batches`, `import_file_mappings`,
+`categories`, `transaction_types`, `activity_log`, `profiles`); this desk owns only the posting
+workflow tables (`posting_jobs`, `posting_job_assets`, `posted_log`, `daily_report`).
+
+See `SHARED_ASSET_ARCHITECTURE.md` in the `apg-website` repo for the full design.
+
+### One-time consolidation (manual — requires Supabase CLI auth)
+
+```powershell
+supabase link --project-ref ldtavdybcgwjgticrymz   # re-link to the shared project
+supabase db push                                    # apply 0001/0002 desk tables
+```
+
+### Import APR LISTING into the shared backend
+
+The Windows `APR LISTING` folder is an ingestion source only (never read at runtime).
+
+```powershell
+# Dry-run: walk, parse, dedup-check, report — no writes
+python -m apg_automation.ingest --source "C:/Users/Deign/Downloads/APG Prototype System for Automated Posting/APR LISTING" --dry-run
+
+# Reconcile Supabase vs folder (missing/orphaned)
+python -m apg_automation.ingest --source "C:/Users/Deign/Downloads/APG Prototype System for Automated Posting/APR LISTING" --verify
+
+# Live import (uploads originals+docs to apg-private; sets ingestion_status='pending_review')
+python -m apg_automation.ingest --source "C:/Users/Deign/Downloads/APG Prototype System for Automated Posting/APR LISTING"
+```
+
+Review every `parse_confidence=low/partial` row in the report before approving assets.
+
+### Required env (`.env`)
+
+- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (server only — never in the browser), `SUPABASE_ANON_KEY`
+- Firebase vars are DEPRECATED (retained only for the legacy demo path); live auth uses Supabase Auth with `profiles.role='staff'` for operators.
+

@@ -57,6 +57,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dry-run", action="store_true", help="Validate property queue without generating captions or logging")
     parser.add_argument("--serve", action="store_true", help="Start the PWA server")
     parser.add_argument("--demo", action="store_true", help="Start the PWA with local source and no external credentials")
+    parser.add_argument("--asset-source", default="local", choices=["local", "drive", "supabase"],
+                        help="Source of property assets: local folder, Google Drive, or Supabase (default: local)")
     return parser
 
 
@@ -109,12 +111,28 @@ def main() -> int:
         queue = None
         job_store = None
         auth_required = False
+        asset_service = None
+        if args.asset_source == "supabase":
+            from .supabase_client import build_supabase_client
+            supabase_client = build_supabase_client(
+                url=config.supabase.url,
+                service_role_key=config.supabase.service_role_key,
+            )
+            from .supabase_assets import SupabaseAssetRepository
+            drive = SupabaseAssetRepository(
+                supabase_client,
+                bucket_private=config.storage.bucket_private,
+                bucket_public=config.storage.bucket_public,
+                signed_url_ttl=config.storage.signed_url_ttl_seconds,
+                min_images=config.processing.min_images,
+            )
     else:
         from .supabase_client import build_supabase_client
         from .supabase_auth import SupabaseTokenVerifier
         from .supabase_job_store import SupabaseJobStore
         from .supabase_queue import SupabasePropertyQueue
         from .supabase_tracking import SupabaseTracker
+        from .asset_service import AssetService
 
         supabase_client = build_supabase_client(
             url=config.supabase.url,
@@ -141,6 +159,16 @@ def main() -> int:
             print(f"Seeded {result['seeded']} account(s): {', '.join(result['accounts'])}")
         except Exception as exc:
             print(f"Seed skipped (accounts may already exist): {exc}")
+        asset_service = AssetService.from_config(config)
+        if args.asset_source == "supabase":
+            from .supabase_assets import SupabaseAssetRepository
+            drive = SupabaseAssetRepository(
+                supabase_client,
+                bucket_private=config.storage.bucket_private,
+                bucket_public=config.storage.bucket_public,
+                signed_url_ttl=config.storage.signed_url_ttl_seconds,
+                min_images=config.processing.min_images,
+            )
     app = create_app(
         drive=drive,
         caption_generator=caption_generator,
@@ -148,6 +176,7 @@ def main() -> int:
         auth_verifier=auth_verifier,
         queue=queue,
         job_store=job_store,
+        asset_service=asset_service,
         auth_required=auth_required,
         download_root=Path("downloads"),
     )
