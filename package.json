@@ -4,12 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -n api,web \"python -m apg_automation.main --serve --demo --host 0.0.0.0 --port 8000\" \"vite --host 0.0.0.0\"",
-    "dev:live": "concurrently -k -n api,web \"python -m apg_automation.main --serve --local-folder \\\"Novaliches, 440 Bagbag\\\" --host 0.0.0.0 --port 8000\" \"vite --host 0.0.0.0\"",
-    "dev:api": "python -m apg_automation.main --serve --demo --host 0.0.0.0 --port 8000",
-    "dev:web": "vite --host 0.0.0.0",
+    "dev": "concurrently -k -n api,web \"py -3.14 -m apg_automation.main --serve --demo --local-folder \\\"Novaliches, 440 Bagbag\\\" --asset-source local --host 0.0.0.0 --port 8001\" \"vite\"",
+    "dev:live": "concurrently -k -n api,web \"py -3.14 -m apg_automation.main --serve --local-folder \\\"Novaliches, 440 Bagbag\\\" --asset-source local --host 0.0.0.0 --port 8001\" \"vite\"",
+    "dev:api": "py -3.14 -m apg_automation.main --serve --demo --local-folder \\\"Novaliches, 440 Bagbag\\\" --asset-source local --host 0.0.0.0 --port 8001",
+    "dev:web": "vite",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",

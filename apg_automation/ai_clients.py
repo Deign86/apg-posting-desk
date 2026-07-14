@@ -34,7 +34,27 @@ class NvidiaNimClient:
             temperature=0.2,
             max_tokens=1200,
         )
-        return response.choices[0].message.content
+        message = response.choices[0].message
+        content = message.content
+        if not content:
+            content = getattr(message, "reasoning_content", None) or ""
+        stripped = content.strip()
+        if not stripped:
+            raise ValueError("NVIDIA NIM returned empty content")
+        return stripped
+
+    def probe(self) -> bool:
+        """Quick smoke test: one-token call. Returns True if NIM is reachable."""
+        try:
+            self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": "OK"}],
+                max_tokens=5,
+                temperature=0,
+            )
+            return True
+        except Exception:
+            return False
 
 
 class OpenAIClient:

@@ -79,6 +79,7 @@ const refs = {
 
 
 let selectedRole = "user";
+let loginError = "";
 const workflowState = {
   prepared: true,
   downloadedAssets: false,
@@ -93,16 +94,12 @@ const STEP_ORDER = ["details", "photos", "caption", "publish", "log"];
 const STEP_PREREQ = {
   photos: () => workflowState.prepared && activeJob()?.images.length > 0,
   caption: () => workflowState.prepared && workflowState.generatedCaption,
-  publish: () =>
-    workflowState.prepared &&
-    workflowState.downloadedAssets &&
-    workflowState.generatedCaption,
-  log: () =>
-    workflowState.prepared &&
-    workflowState.downloadedAssets &&
-    workflowState.generatedCaption &&
-    workflowState.copiedCaption &&
-    workflowState.openedFacebook,
+  // Publish/Log tabs stay reachable once prepared: the in-panel actions
+  // (download, copy, open FB, enter URL, mark posted) are gated individually
+  // by updateWorkflowGuide, so locking the tabs themselves created a dead-end
+  // if an earlier in-panel step was skipped.
+  publish: () => workflowState.prepared,
+  log: () => workflowState.prepared,
 };
 
 function setActiveStep(step) {
@@ -128,7 +125,7 @@ function updateWorkflowTabs() {
   setActiveStep(currentStep);
 }
 
-if ("serviceWorker" in navigator) {
+if ("serviceWorker" in navigator && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
   navigator.serviceWorker.register("/service-worker.js");
 }
 
@@ -168,6 +165,7 @@ async function copyText(text, message) {
 
 function statusBadge(status) {
   const map = {
+    assigned: ["New assignment", "warn"],
     "missing-assets": ["Photos or caption missing", "err"],
     "ready-for-review": ["Ready for review", "warn"],
     "ready-to-post": ["Ready to post", "ready"],
@@ -208,6 +206,7 @@ function normalizeJob(raw) {
     variants: normalizeVariants(raw),
     finalCaption: raw.caption || raw.finalCaption || "",
     facebookLink: raw.facebook_url || raw.facebookLink || "",
+    zipUrl: raw.download_zip_url || raw.zipUrl || "",
     activity: Array.isArray(raw.activity) ? raw.activity : [],
   };
 }
@@ -245,14 +244,6 @@ function renderJobList() {
       refs.jobList.appendChild(btn);
     });
   }
-  refs.assignedCount.textContent = jobs.length;
-  refs.approvalCount.textContent = jobs.filter(
-    (j) => j.status === "ready-for-review" || j.status === "waiting-approval"
-  ).length;
-  refs.readyCount.textContent = jobs.filter((j) => j.status === "ready-to-post").length;
-  refs.postedCount.textContent = jobs.filter(
-    (j) => j.status === "posted" || j.status === "posted_today"
-  ).length;
 }
 
 function hydrateForm() {
@@ -293,7 +284,7 @@ function hydrateForm() {
   refs.captionSourceOutput.textContent =
     job.details ||
     "Fetch a property to review the extracted DOCX details here.";
-  refs.zipDownload.href = `/prepared/${encodeURIComponent(job.propertyName)}.zip`;
+  refs.zipDownload.href = job.zipUrl || "#";
   if (job.images.length > 0) {
     refs.zipDownload.removeAttribute("aria-disabled");
   }
@@ -401,6 +392,10 @@ function checkCaptionRules(text) {
 
 function renderVariants() {
   const job = activeJob();
+  if (!job) {
+    refs.captionVariants.innerHTML = `<div class="muted" style="padding:.5rem;">No caption generated yet.</div>`;
+    return;
+  }
   refs.captionVariants.innerHTML = "";
   job.variants.forEach((text, idx) => {
     const card = doc.createElement("div");
@@ -433,6 +428,16 @@ function renderVariants() {
 
 function renderMetrics() {
   const job = activeJob();
+  if (!job) {
+    refs.metricProperty.textContent = "-";
+    refs.metricAgent.textContent = "Assigned by -";
+    refs.metricAssets.textContent = "0 images / 0 selected";
+    refs.metricDoc.textContent = "Caption file missing";
+    refs.metricStatus.textContent = "-";
+    refs.metricTracker.textContent = "Post log pending";
+    refs.publishHelper.textContent = "Waiting for approval and manual publish.";
+    return;
+  }
   refs.metricProperty.textContent = job.propertyName || "-";
   refs.metricAgent.textContent = "Assigned by " + (job.assignedBy || "-");
   refs.metricAssets.textContent = `${job.imageCount} images / ${job.images.filter((i) => i.selected).length} selected`;
@@ -446,6 +451,12 @@ function renderMetrics() {
 
 function prepareTrackerPreview() {
   const job = activeJob();
+  if (!job) {
+    refs.trackerPreview.value = "";
+    refs.dailyReportPreview.value = "";
+    refs.trackerStatus.textContent = "Preview will be ready after a property is prepared.";
+    return;
+  }
   const selectedImages = job.images.filter((i) => i.selected).length;
   refs.trackerPreview.value = [
     job.id,
@@ -511,6 +522,16 @@ function roleCopy(role) {
 
 function updateWorkflowGuide() {
   const job = activeJob();
+  if (!job) {
+    refs.facebookUrlGroup.hidden = true;
+    refs.logButton.disabled = true;
+    setWorkflowStep("download", false, false);
+    setWorkflowStep("copy", false, false);
+    setWorkflowStep("facebook", false, false);
+    setWorkflowStep("url", false, false);
+    setWorkflowStep("log", false, false);
+    return;
+  }
   const canDownload = workflowState.prepared && job.images.length > 0;
   const canCopyCaption =
     workflowState.downloadedAssets && workflowState.generatedCaption;
@@ -531,6 +552,10 @@ function updateWorkflowGuide() {
   setWorkflowStep("facebook", workflowState.openedFacebook, canOpenFacebook);
   setWorkflowStep("url", workflowState.enteredFacebookUrl, canEnterFacebookUrl);
   setWorkflowStep("log", workflowState.loggedPost, canLogPost);
+  // Tab gating depends on workflowState too (download/copy/openFB/checkboxes),
+  // but those in-panel actions only call updateWorkflowGuide, not the tab sync.
+  // Keep tab disabled-states in sync so prereqs unlock the moment they're met.
+  updateWorkflowTabs();
 }
 
 function setWorkflowStep(name, complete, enabled) {
@@ -545,9 +570,9 @@ function resetWorkflowState() {
   const job = activeJob();
   workflowState.prepared = true;
   workflowState.downloadedAssets = false;
-  workflowState.generatedCaption = Boolean(
-    job.finalCaption || job.variants.length
-  );
+  workflowState.generatedCaption = job
+    ? Boolean(job.finalCaption || job.variants.length)
+    : false;
   workflowState.copiedCaption = false;
   workflowState.openedFacebook = false;
   workflowState.enteredFacebookUrl = false;
@@ -587,72 +612,21 @@ async function requestJson(url, options = {}) {
   }
 }
 
-async function handleLoginSubmit() {
-  const email = refs.loginEmail.value.trim();
-  const password = refs.loginPassword.value;
-  if (!email || !password) {
-    refs.loginError.textContent = "Enter both email and password.";
-    refs.loginError.hidden = false;
-    return;
-  }
-  refs.loginLoader.hidden = false;
-  refs.loginError.hidden = true;
-  try {
-    const response = await jsonFromResponse(
-      await authFetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      })
-    );
-    if (!response.ok) {
-      refs.loginError.textContent = response.data?.detail || "Login failed.";
-      refs.loginError.hidden = false;
-      return;
-    }
-    session.user = {
-      uid: response.data.email,
-      email: response.data.email,
-      role: response.data.role || "user",
-      display_name: response.data.email,
-    };
-    isLoggedIn = true;
-    renderSession();
-    syncLoginView();
-    log("Signed in as " + session.user.email);
-  } catch (error) {
-    refs.loginError.textContent = error.message || "Unable to reach the server.";
-    refs.loginError.hidden = false;
-  } finally {
-    refs.loginLoader.hidden = true;
-  }
-}
+async function handleSignOutLegacy() {}
 
-async function handleSignOut() {
-  try {
-    await authFetch("/api/logout", { method: "POST" });
-  } catch {
-    // best-effort logout
-  }
-  session.user = {
-    uid: "demo-operator",
-    email: "demo@apg.local",
-    role: "user",
-    display_name: "Demo operator",
-  };
-  isLoggedIn = false;
-  renderSession();
-  syncLoginView();
-  log("Signed out");
-}
 
 async function refreshSession() {
+  // Keep the role established at login; the backend returns the X-Demo-Role
+  // header (client default "user"), so don't let it overwrite the real role.
   const response = await jsonFromResponse(await authFetch("/api/session"));
   if (response.ok && response.data.user) {
-    session.user = response.data.user;
+    if (!session.user || !session.user.email) {
+      session.user = response.data.user;
+    }
     session.supabase_url = response.data.supabase_url;
   }
   renderSession();
+  applyRoleGating();
   syncLoginView();
 }
 
@@ -685,6 +659,11 @@ async function loadJobs() {
     activeJobId = jobs[0].id;
   }
   if (!jobs.length) activeJobId = null;
+  const counts = response.data?.counts || {};
+  refs.assignedCount.textContent = counts.assigned_today ?? jobs.length;
+  refs.approvalCount.textContent = counts.waiting_approval ?? 0;
+  refs.readyCount.textContent = counts.ready_to_post ?? 0;
+  refs.postedCount.textContent = counts.posted_today ?? 0;
   renderAll();
   setStatus(response.ok ? "Property list ready" : "Property list unavailable");
 }
@@ -720,6 +699,10 @@ async function createOrPrepareJob() {
 
 async function prepareSelectedJob(source) {
   const job = activeJob();
+  if (!job) {
+    toast("Select or create a property first.");
+    return;
+  }
   setStatus("Checking property files");
   const jobId = job.id;
   await jsonFromResponse(
@@ -770,9 +753,9 @@ function setStatus(message) {
 }
 
 async function ensureFirebase() {
-  setStatus("Demo mode is active");
+  setStatus("Connected to local workspace");
   refs.userLabel.textContent =
-    "Demo mode is active. You can explore the workspace with sample data right away.";
+    "Connected to the local workspace. Sign in to start preparing posts.";
   return false;
 }
 
@@ -781,48 +764,75 @@ async function signInWithEmail() {
   renderLoginError();
   refs.loginLoader.hidden = false;
   refs.loginSubmit.disabled = true;
+  const email = refs.loginEmail.value.trim();
+  const password = refs.loginPassword.value;
   try {
-    if (supabase) {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: refs.loginEmail.value.trim(),
-        password: refs.loginPassword.value,
-      });
-      if (error) throw error;
-      session.user = {
-        uid: data.user.id,
-        email: data.user.email,
-        role: "user",
-        display_name: data.user.email,
-      };
-    } else {
-      const response = await jsonFromResponse(
-        await authFetch("/api/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: refs.loginEmail.value.trim(),
-            password: refs.loginPassword.value,
-          }),
-        })
-      );
-      if (!response.ok) {
-        loginError = response.data?.detail || "Sign-in failed. Please try again.";
-        renderLoginError();
-        setStatus("Sign-in failed");
-        return;
-      }
+    // Backend /api/login is authoritative. Only fall back to Supabase when the
+    // backend is unreachable (network error or 5xx), NOT when it rejects the
+    // credentials (401) — otherwise a live Supabase project would silently
+    // override the backend's role and hijack the session.
+    let backendUnreachable = false;
+    const response = await jsonFromResponse(
+      await authFetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      })
+    ).catch(() => null);
+    if (!response) {
+      backendUnreachable = true;
+    } else if (response.ok) {
       session.user = {
         uid: response.data.email,
         email: response.data.email,
         role: response.data.role || "user",
         display_name: response.data.email,
       };
+      currentUser = null;
+    } else if (response.data && response.data.detail) {
+      // Backend rejected the credentials — surface the error, no fallback.
+      loginError = response.data.detail;
+      renderLoginError();
+      setStatus("Sign-in failed");
+      return;
+    } else {
+      backendUnreachable = true;
     }
+
+    // Optional Supabase fallback only when the backend is down.
+    if (backendUnreachable && supabase) {
+      const timed = (promise, ms) =>
+        Promise.race([
+          promise,
+          new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms)),
+        ]);
+      try {
+        const { data, error } = await timed(
+          supabase.auth.signInWithPassword({ email, password }),
+          4000
+        );
+        if (error) throw error;
+        currentUser = data.session;
+        session.user = {
+          uid: data.user.id,
+          email: data.user.email,
+          role: data.user.role || "user",
+          display_name: data.user.email,
+        };
+      } catch {
+        currentUser = null;
+        loginError = "Unable to reach the server. Please try again.";
+        renderLoginError();
+        setStatus("Sign-in failed");
+        return;
+      }
+    }
+    selectedRole = session.user.role || "user";
     isLoggedIn = true;
     syncLoginView();
     await refreshSession();
     await loadJobs();
-    setStatus("Signed in");
+    setStatus("Signed in as " + selectedRole);
   } catch (error) {
     loginError = error?.message || "Sign-in failed. Please try again.";
     renderLoginError();
@@ -832,7 +842,6 @@ async function signInWithEmail() {
     refs.loginSubmit.disabled = false;
   }
 }
-
 async function signOut() {
   currentUser = null;
   isLoggedIn = false;
@@ -845,11 +854,12 @@ async function signOut() {
     // best-effort logout
   }
   session.user = {
-    uid: "demo-operator",
-    email: "demo@apg.local",
+    uid: "",
+    email: "",
     role: "user",
-    display_name: "Demo operator",
+    display_name: "",
   };
+  selectedRole = "user";
   syncLoginView();
   await refreshSession();
   await loadJobs();
@@ -879,35 +889,8 @@ function toggleTheme() {
 el("themeToggle").addEventListener("click", toggleTheme);
 el("loginThemeToggle").addEventListener("click", toggleTheme);
 
-doc.querySelectorAll("[data-role-option]").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    doc.querySelectorAll("[data-role-option]").forEach((b) => {
-      b.classList.remove("active");
-      b.setAttribute("aria-pressed", "false");
-    });
-    btn.classList.add("active");
-    btn.setAttribute("aria-pressed", "true");
-    selectedRole = btn.dataset.role || "user";
-    session.user.role = selectedRole;
-    renderSession();
-    applyRoleGating();
-    demoSignIn();
-  });
-});
-
-async function demoSignIn() {
-  isLoggedIn = true;
-  session.user = {
-    uid: "demo-" + selectedRole,
-    email: "demo-" + selectedRole + "@apg.local",
-    role: selectedRole,
-    display_name: "Demo " + selectedRole,
-  };
-  syncLoginView();
-  await refreshSession();
-  await loadJobs();
-  setStatus("Signed in as " + selectedRole);
-}
+// Real authentication is handled by signInWithEmail()/signOut().
+// selectedRole is set from the server-returned role after a successful login.
 
 function applyRoleGating() {
   const isAdmin = selectedRole === "admin";
@@ -937,8 +920,12 @@ doc.querySelectorAll(".nav-btn").forEach((button) => {
 });
 
 el("validateAssetsBtn").addEventListener("click", () => {
-  syncFormToJob();
   const job = activeJob();
+  if (!job) {
+    toast("Select or create a property first.");
+    return;
+  }
+  syncFormToJob();
   job.hasCaptionDoc = refs.captionDetails.value.trim().length > 0;
   job.imageCount = job.images.length;
   renderAll();
@@ -1033,6 +1020,10 @@ el("openFacebookBtn").addEventListener("click", () => {
 refs.logButton.addEventListener("click", async () => {
   syncFormToJob();
   const job = activeJob();
+  if (!job) {
+    toast("Select or create a property first.");
+    return;
+  }
   const selectedCount = job.images.filter((i) => i.selected).length;
   if (
     !refs.checkCaptionApproved.checked ||
@@ -1085,6 +1076,10 @@ el("clearLogBtn").addEventListener("click", () => {
 
 el("simulatePipelineBtn").addEventListener("click", async () => {
   const job = activeJob();
+  if (!job) {
+    toast("Select or create a property first.");
+    return;
+  }
   setStatus("Running pipeline");
   const jobId = job.id;
   const prepared = await jsonFromResponse(

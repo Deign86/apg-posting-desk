@@ -15,8 +15,8 @@ def build_supabase_client(
             "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for live mode"
         )
     options = ClientOptions(
-        storage_client_timeout=300,
-        postgrest_client_timeout=120,
+        storage_client_timeout=15,
+        postgrest_client_timeout=15,
         schema="public",
     )
     return create_client(url, key, options=options)

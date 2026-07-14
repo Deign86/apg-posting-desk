@@ -69,6 +69,7 @@ def create_app(
     auth_required: bool = False,
     download_root: Path = Path("prepared"),
     static_dir: Path = STATIC_DIR,
+    seed_jobs: list[dict] | None = None,
 ) -> FastAPI:
     (download_root / "_public").mkdir(parents=True, exist_ok=True)
     static_dir.mkdir(parents=True, exist_ok=True)
@@ -81,6 +82,12 @@ def create_app(
     )
     preparations: dict[str, PreparedPost] = {}
     jobs = job_store if job_store is not None else InMemoryJobStore()
+    if seed_jobs:
+        for sj in seed_jobs:
+            try:
+                jobs.create(**sj)
+            except Exception:
+                pass  # ignore duplicate seeds
     _demo_display_names = {
         "admin": "Demo Admin",
         "user": "Demo User",
@@ -204,13 +211,15 @@ def create_app(
 
     @app.get("/api/preparations/{preparation_id}/images.zip")
     def download_zip(preparation_id: str) -> FileResponse:
-        prepared = preparations.get(preparation_id)
-        if prepared is None:
+        public_dir = download_root / "_public" / preparation_id
+        if not public_dir.is_dir():
             raise HTTPException(status_code=404, detail="Preparation not found")
-
-        zip_path = download_root / "_public" / preparation_id / "images.zip"
+        images = [p for p in public_dir.iterdir() if p.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp")]
+        if not images:
+            raise HTTPException(status_code=404, detail="No images in preparation")
+        zip_path = public_dir / "images.zip"
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
-            for image in prepared.images:
+            for image in images:
                 archive.write(image, arcname=image.name)
         return FileResponse(zip_path, media_type="application/zip", filename="images.zip")
 
@@ -291,6 +300,7 @@ def create_app(
             })
 
         prepared_data = {
+            "id": job_id,
             "property_name": prepared.property_name,
             "caption": prepared.caption,
             "caption_document_name": prepared.caption_document_name,
@@ -299,6 +309,9 @@ def create_app(
             "variants": [prepared.caption],
             "violations": prepared.violations or [],
             "requires_manual_review": prepared.requires_manual_review,
+            "drive_url": job.drive_url,
+            "status": job.status,
+            "download_zip_url": f"/api/preparations/{preparation_id}/images.zip",
         }
         jobs.set_prepared(job_id, prepared_data)
         jobs.add_activity(job_id, {"at": _now_time(), "text": "Pipeline prepared Drive assets and caption."})

@@ -127,48 +127,103 @@ def main() -> int:
                 min_images=config.processing.min_images,
             )
     else:
-        from .supabase_client import build_supabase_client
-        from .supabase_auth import SupabaseTokenVerifier
-        from .supabase_job_store import SupabaseJobStore
-        from .supabase_queue import SupabasePropertyQueue
-        from .supabase_tracking import SupabaseTracker
-        from .asset_service import AssetService
-
-        supabase_client = build_supabase_client(
-            url=config.supabase.url,
-            service_role_key=config.supabase.service_role_key,
-        )
-        caption_generator = CaptionGenerator(
-            client=build_ai_client(config.ai.provider, config.ai.model),
-            max_retries=config.processing.max_retries,
-        )
-        tracker = TrackerUpdater(
-            sheets_client=GoogleSheetsClient(service=build_sheets_service()),
-            docs_client=GoogleDocsClient(service=build_docs_service()),
-            posting_tracker_sheet_id=config.tracking.posting_tracker_sheet_id,
-            daily_report_doc_id=config.tracking.daily_report_doc_id,
-            posted_by=config.posted_by,
-        )
-        auth_verifier = SupabaseTokenVerifier(client=supabase_client)
-        queue = SupabasePropertyQueue(supabase_client)
-        job_store = SupabaseJobStore(supabase_client)
-        auth_required = True
-        # Auto-seed accounts on startup so email/password login works immediately
+        # ---- Live mode: try Supabase, fall back to resilient mode ----
+        _supabase_healthy = False
         try:
-            result = auth_verifier.seed_accounts()
-            print(f"Seeded {result['seeded']} account(s): {', '.join(result['accounts'])}")
-        except Exception as exc:
-            print(f"Seed skipped (accounts may already exist): {exc}")
-        asset_service = AssetService.from_config(config)
-        if args.asset_source == "supabase":
-            from .supabase_assets import SupabaseAssetRepository
-            drive = SupabaseAssetRepository(
-                supabase_client,
-                bucket_private=config.storage.bucket_private,
-                bucket_public=config.storage.bucket_public,
-                signed_url_ttl=config.storage.signed_url_ttl_seconds,
-                min_images=config.processing.min_images,
+            import requests as _req
+            _resp = _req.get(
+                f"{config.supabase.url}/auth/v1/admin/users?per_page=1",
+                headers={
+                    "apikey": config.supabase.service_role_key,
+                    "Authorization": f"Bearer {config.supabase.service_role_key}",
+                },
+                timeout=8,
             )
+            if _resp.status_code in (200, 401):
+                if _resp.status_code == 200:
+                    _supabase_healthy = True
+                    from .supabase_client import build_supabase_client
+                    _supabase_client = build_supabase_client(
+                        url=config.supabase.url,
+                        service_role_key=config.supabase.service_role_key,
+                    )
+        except Exception as exc:
+            print(f"Supabase unreachable: {exc}")
+            print("Falling back to local auth + in-memory store")
+
+        if _supabase_healthy:
+            from .supabase_auth import SupabaseTokenVerifier
+            from .supabase_job_store import SupabaseJobStore
+            from .supabase_queue import SupabasePropertyQueue
+            from .supabase_tracking import SupabaseTracker
+            from .asset_service import AssetService
+
+            caption_generator = CaptionGenerator(
+                client=build_ai_client(config.ai.provider, config.ai.model),
+                max_retries=config.processing.max_retries,
+            )
+            tracker = TrackerUpdater(
+                sheets_client=GoogleSheetsClient(service=build_sheets_service()),
+                docs_client=GoogleDocsClient(service=build_docs_service()),
+                posting_tracker_sheet_id=config.tracking.posting_tracker_sheet_id,
+                daily_report_doc_id=config.tracking.daily_report_doc_id,
+                posted_by=config.posted_by,
+            )
+            auth_verifier = SupabaseTokenVerifier(client=_supabase_client)
+            queue = SupabasePropertyQueue(_supabase_client)
+            job_store = SupabaseJobStore(_supabase_client)
+            auth_required = True
+            try:
+                result = auth_verifier.seed_accounts()
+                print(f"Seeded {result['seeded']} account(s): {', '.join(result['accounts'])}")
+            except Exception as exc:
+                print(f"Seed skipped (accounts may already exist): {exc}")
+            asset_service = AssetService.from_config(config)
+            if args.asset_source == "supabase":
+                from .supabase_assets import SupabaseAssetRepository
+                drive = SupabaseAssetRepository(
+                    _supabase_client,
+                    bucket_private=config.storage.bucket_private,
+                    bucket_public=config.storage.bucket_public,
+                    signed_url_ttl=config.storage.signed_url_ttl_seconds,
+                    min_images=config.processing.min_images,
+                )
+        else:
+            caption_generator = CaptionGenerator(
+                client=build_ai_client(config.ai.provider, config.ai.model),
+                max_retries=config.processing.max_retries,
+            )
+            tracker = ConsoleTracker()
+            auth_verifier = None
+            queue = None
+            job_store = None
+            auth_required = False
+            asset_service = None
+
+    # Probe NIM reachability at startup
+    try:
+        _nim_client = build_ai_client(config.ai.provider, config.ai.model)
+        if _nim_client.probe():
+            print(f"NVIDIA NIM ready: {config.ai.model}")
+        else:
+            print(f"NVIDIA NIM unreachable: {config.ai.model}")
+    except Exception as exc:
+        print(f"NVIDIA NIM probe skipped: {exc}")
+
+    # Auto-seed a job for the local fixture so the workspace lists it immediately.
+    # Applies whenever a local property folder is supplied (local or demo mode).
+    _seed_jobs = []
+    if args.local_folder:
+        _fixture_name = Path(args.local_folder).name
+        _seed_jobs.append({
+            "property_name": _fixture_name,
+            "assigned_by": "Ma'am Jean",
+            "operator": "Unassigned",
+            "due_date": "",
+            "drive_url": str(Path(args.local_folder).resolve()),
+        })
+        print(f"Seeded job for local fixture: {_fixture_name}")
+
     app = create_app(
         drive=drive,
         caption_generator=caption_generator,
@@ -179,6 +234,7 @@ def main() -> int:
         asset_service=asset_service,
         auth_required=auth_required,
         download_root=Path("downloads"),
+        seed_jobs=_seed_jobs,
     )
     import uvicorn
 

@@ -6,7 +6,7 @@ def test_package_json_has_npm_dev_script_for_pwa():
     package = json.loads(Path("package.json").read_text(encoding="utf-8"))
 
     assert package["scripts"]["dev"].startswith("concurrently")
-    assert "vite --host 0.0.0.0" in package["scripts"]["dev"]
+    assert package["scripts"]["dev"].endswith('"vite"')
     assert "python -m apg_automation.main --serve" in package["scripts"]["dev"]
 
 

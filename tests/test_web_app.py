@@ -338,3 +338,57 @@ def test_user_role_can_access_non_admin_endpoints(tmp_path):
         "property_name": "Sample Property",
         "facebook_url": "https://facebook.com/test",
     }).status_code == 200
+
+
+def test_seed_jobs_pre_creates_jobs_in_store(tmp_path):
+    """create_app(seed_jobs=[...]) should pre-populate the job store."""
+    for index in range(1, 4):
+        (tmp_path / f"{index}.jpg").write_bytes(b"image")
+    (tmp_path / "caption.txt").write_text("Details.", encoding="utf-8")
+    tracker = FakeTracker()
+    app = create_app(
+        drive=FakeDrive(tmp_path),
+        caption_generator=FakeCaptionGenerator(),
+        tracker=tracker,
+        download_root=tmp_path / "prepared",
+        seed_jobs=[{
+            "property_name": "Seeded Property",
+            "assigned_by": "System",
+            "operator": "demo",
+            "due_date": "",
+            "drive_url": "file:///seeded",
+        }],
+    )
+    client = TestClient(app, headers={"X-Demo-Role": "admin"})
+
+    resp = client.get("/api/jobs")
+
+    assert resp.status_code == 200
+    jobs = resp.json()["jobs"]
+    assert any(j["property_name"] == "Seeded Property" for j in jobs)
+
+
+def test_seed_jobs_ignores_duplicate_seeds(tmp_path):
+    """Duplicate seed entries should not crash create_app."""
+    for index in range(1, 4):
+        (tmp_path / f"{index}.jpg").write_bytes(b"image")
+    (tmp_path / "caption.txt").write_text("Details.", encoding="utf-8")
+    tracker = FakeTracker()
+    seed = {
+        "property_name": "Dup Property",
+        "assigned_by": "System",
+        "operator": "demo",
+        "due_date": "",
+        "drive_url": "file:///dup",
+    }
+    app = create_app(
+        drive=FakeDrive(tmp_path),
+        caption_generator=FakeCaptionGenerator(),
+        tracker=tracker,
+        download_root=tmp_path / "prepared",
+        seed_jobs=[seed, seed],
+    )
+    client = TestClient(app, headers={"X-Demo-Role": "admin"})
+
+    # Should not raise; app boots fine
+    assert client.get("/api/jobs").status_code == 200
