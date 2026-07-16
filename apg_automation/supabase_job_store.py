@@ -122,8 +122,33 @@ class SupabaseJobStore:
             self.client.table("posting_job_assets").insert({
                 "job_id": job_id, "asset_id": aid, "display_order": idx, "selected": True,
             }).execute()
-        res = self.client.table("posting_job_assets").select("*").eq("job_id", job_id).order("display_order").execute()
+        res = self.client.table("posting_job_assets").select("*, asset:assets(*)").eq("job_id", job_id).order("display_order").execute()
         return res.data or []
+
+    def get_prepared_image_assets(self, job_id: str) -> list[dict]:
+        """Return selected assets for a job with full asset metadata, including
+        storage_path and storage_bucket for zip streaming."""
+        res = (
+            self.client.table("posting_job_assets")
+            .select("*, asset:assets(*)")
+            .eq("job_id", job_id)
+            .eq("selected", True)
+            .order("display_order")
+            .execute()
+        )
+        rows = res.data or []
+        results = []
+        for row in rows:
+            a = row.get("asset") or {}
+            results.append({
+                "asset_id": row["asset_id"],
+                "display_order": row.get("display_order", 0),
+                "original_name": a.get("original_name", ""),
+                "storage_path": a.get("storage_path", ""),
+                "storage_bucket": a.get("storage_bucket", "apg-public"),
+                "mime_type": a.get("mime_type", "application/octet-stream"),
+            })
+        return results
 
     def approve(self, job_id: str, *, actor_uid: str | None = None) -> dict:
         from datetime import datetime

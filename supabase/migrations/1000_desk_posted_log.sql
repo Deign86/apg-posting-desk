@@ -1,13 +1,37 @@
--- 0001_init.sql -- APG Posting Desk: desk-owned reporting tables
--- CANONICAL PROJECT: ldtavdybcgwjgticrymz (shared with apg-website).
--- Creates ONLY desk-owned tables. Does NOT create profiles, offerings, assets,
--- categories, transaction_types, property_asset_versions, raw_folder_mappings,
--- or activity_log -- those are owned by apg-website. See SHARED_ASSET_ARCHITECTURE.md.
+-- 1000_desk_posted_log.sql -- APG Posting Desk: desk-owned reporting tables
+
+-- Standalone helper functions (not provided by website project in this DB)
+CREATE OR REPLACE FUNCTION public.is_staff()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role IN ('staff', 'admin')
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+-- Add offering_id column if missing
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'posted_log' AND column_name = 'offering_id'
+  ) THEN
+    ALTER TABLE public.posted_log ADD COLUMN offering_id BIGINT;
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.posted_log (
   id            BIGSERIAL PRIMARY KEY,
   posted_on     DATE NOT NULL,
-  offering_id   BIGINT REFERENCES public.offerings(id) ON DELETE SET NULL,
+  offering_id   BIGINT,
   property_name TEXT NOT NULL,
   post_url      TEXT NOT NULL,
   status        TEXT NOT NULL DEFAULT 'Posted',

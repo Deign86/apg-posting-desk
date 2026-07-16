@@ -767,40 +767,10 @@ async function signInWithEmail() {
   const email = refs.loginEmail.value.trim();
   const password = refs.loginPassword.value;
   try {
-    // Backend /api/login is authoritative. Only fall back to Supabase when the
-    // backend is unreachable (network error or 5xx), NOT when it rejects the
-    // credentials (401) — otherwise a live Supabase project would silently
-    // override the backend's role and hijack the session.
-    let backendUnreachable = false;
-    const response = await jsonFromResponse(
-      await authFetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      })
-    ).catch(() => null);
-    if (!response) {
-      backendUnreachable = true;
-    } else if (response.ok) {
-      session.user = {
-        uid: response.data.email,
-        email: response.data.email,
-        role: response.data.role || "user",
-        display_name: response.data.email,
-      };
-      currentUser = null;
-    } else if (response.data && response.data.detail) {
-      // Backend rejected the credentials — surface the error, no fallback.
-      loginError = response.data.detail;
-      renderLoginError();
-      setStatus("Sign-in failed");
-      return;
-    } else {
-      backendUnreachable = true;
-    }
-
-    // Optional Supabase fallback only when the backend is down.
-    if (backendUnreachable && supabase) {
+    // In live mode (Supabase configured), authenticate via Supabase Auth
+    // directly and send the Bearer token to the backend for verification.
+    // In demo mode (no Supabase), use the backends /api/login with demo accounts.
+    if (supabase && supabaseUrl !== "demo") {
       const timed = (promise, ms) =>
         Promise.race([
           promise,
@@ -816,16 +786,44 @@ async function signInWithEmail() {
         session.user = {
           uid: data.user.id,
           email: data.user.email,
-          role: data.user.role || "user",
+          role: data.user.role || "staff",
           display_name: data.user.email,
         };
       } catch {
         currentUser = null;
+        loginError = "Sign-in failed. Please check your credentials and try again.";
+        renderLoginError();
+        setStatus("Sign-in failed");
+        return;
+      }
+    } else {
+      // Demo mode: backend /api/login is authoritative.
+      const response = await jsonFromResponse(
+        await authFetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        })
+      ).catch(() => null);
+      if (!response) {
         loginError = "Unable to reach the server. Please try again.";
         renderLoginError();
         setStatus("Sign-in failed");
         return;
       }
+      if (!response.ok) {
+        loginError = response.data?.detail || "Invalid email or password";
+        renderLoginError();
+        setStatus("Sign-in failed");
+        return;
+      }
+      session.user = {
+        uid: response.data.email,
+        email: response.data.email,
+        role: response.data.role || "user",
+        display_name: response.data.email,
+      };
+      currentUser = null;
     }
     selectedRole = session.user.role || "user";
     isLoggedIn = true;

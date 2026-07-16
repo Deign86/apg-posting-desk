@@ -1,8 +1,6 @@
-anthropic>=0.40.0
+# Runtime (serverless) — fastapi + companion deps; serverless function inspects
+# requirements.txt or pyproject.toml at build time.
 fastapi>=0.115.0
-firebase-admin>=6.5.0
-google-api-python-client>=2.150.0
-google-auth-oauthlib>=1.2.1
 openai>=1.55.0
 Pillow>=11.0.0
 PyPDF2>=3.0.1
@@ -10,6 +8,18 @@ python-docx>=1.1.2
 python-dotenv>=1.0.1
 PyYAML>=6.0.2
 requests>=2.32.3
-pytest>=8.3.3
 supabase>=2.7.0
+
+# Dev / local — not shipped to Vercel serverless (use excludeFiles in vercel.json),
+# but kept here so `pip install -r requirements.txt` includes them for local dev.
+# Serverless bundle: only the runtime deps above get deployed.
+pytest>=8.3.3
 uvicorn>=0.30.0
+# Firebase is DEPRECATED (replaced by Supabase Auth); kept only for legacy local demo.
+# firebase-admin>=6.5.0
+# Google services are NOT needed in Supabase-only serverless mode.
+# google-api-python-client>=2.150.0
+# google-auth-oauthlib>=1.2.1
+# Anthropic provider — uncomment if you use Anthropic for caption generation.
+# anthropic>=0.40.0
+

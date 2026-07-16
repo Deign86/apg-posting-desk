@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import io
 import shutil
 import uuid
 import zipfile
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -55,6 +56,72 @@ def _now_time() -> str:
     from datetime import datetime
     from zoneinfo import ZoneInfo
     return datetime.now(ZoneInfo("Asia/Manila")).strftime("%H:%M")
+
+
+def _is_supabase_mode(drive) -> bool:
+    """Return True when the drive adapter supports signed URLs (Supabase mode)."""
+    return hasattr(drive, "get_signed_url")
+
+
+def _prepare_from_storage(
+    property_name: str, drive, caption_generator, _extractor,
+    job_id: str, jobs, download_root, asset_service,
+) -> dict:
+    folder = drive.find_property_folder(property_name)
+    if folder is None:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    image_files = folder.get("image_files", [])[:3]
+    doc_files = folder.get("document_files", [])
+    if len(image_files) < 1:
+        raise HTTPException(status_code=400, detail="Insufficient images")
+    if not doc_files:
+        raise HTTPException(status_code=400, detail="Missing caption document")
+
+    doc = doc_files[0]
+    doc_path = download_root / "captions" / doc["name"]
+    doc_path.parent.mkdir(parents=True, exist_ok=True)
+    drive.download_file(doc["id"], doc_path, mime_type=doc.get("mimeType", ""))
+
+    caption_details = _extractor.extract_document_text(doc_path)
+    review = caption_generator.generate(caption_details)
+
+    public_images = []
+    asset_ids = []
+    for img in image_files[:3]:
+        asset_id = img["id"]
+        try:
+            url = drive.get_signed_url(asset_id)
+        except Exception:
+            url = ""
+        public_images.append({
+            "name": img["name"],
+            "url": url,
+            "asset_id": asset_id,
+            "selected": True,
+        })
+        asset_ids.append(asset_id)
+
+    prepared_data = {
+        "id": job_id,
+        "property_name": property_name,
+        "caption": review.text,
+        "caption_document_name": doc["name"],
+        "caption_details": caption_details,
+        "images": public_images,
+        "variants": [review.text],
+        "violations": review.violations or [],
+        "requires_manual_review": review.requires_manual_review,
+        "download_zip_url": f"/api/jobs/{job_id}/prepared.zip",
+    }
+    jobs.set_prepared(job_id, prepared_data)
+    if asset_ids:
+        jobs.select_job_assets(job_id, asset_ids)
+    jobs.add_activity(job_id, {
+        "at": _now_time(),
+        "text": "Pipeline prepared Supabase Storage assets and caption.",
+    })
+    return prepared_data
 
 
 def create_app(
@@ -167,8 +234,25 @@ def create_app(
 
     @app.post("/api/prepare")
     def prepare(request: PrepareRequest, user=Depends(user_dependency)) -> dict:
+        prop_name = request.property_name.strip()
+        if _is_supabase_mode(drive):
+            # In Supabase mode, the frontend flow uses /api/jobs/{id}/prepare;
+            # this legacy route returns a lightweight placeholder.
+            folder = drive.find_property_folder(prop_name)
+            preview = pipeline.caption_generator.generate(prop_name)
+            return {
+                "preparation_id": uuid.uuid4().hex,
+                "property_name": prop_name,
+                "caption": preview.text,
+                "caption_document_name": "",
+                "caption_details": "",
+                "images": [],
+                "download_zip_url": "",
+                "requires_manual_review": preview.requires_manual_review,
+                "violations": preview.violations or [],
+            }
         try:
-            prepared = pipeline.prepare(request.property_name.strip())
+            prepared = pipeline.prepare(prop_name)
         except Exception as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
 
@@ -222,6 +306,40 @@ def create_app(
             for image in images:
                 archive.write(image, arcname=image.name)
         return FileResponse(zip_path, media_type="application/zip", filename="images.zip")
+
+    @app.get("/api/jobs/{job_id}/prepared.zip")
+    def download_job_zip(job_id: str, user=Depends(user_dependency)) -> StreamingResponse:
+        """Stream a ZIP of the job's selected images from Supabase Storage."""
+        job = jobs.get_job(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Job not found")
+        if asset_service is None:
+            raise HTTPException(status_code=503, detail="Asset service not configured")
+        assets = jobs.get_prepared_image_assets(job_id)
+        if not assets:
+            raise HTTPException(status_code=404, detail="No prepared assets for job")
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for a in assets:
+                sp = a.get("storage_path", "")
+                bucket = a.get("storage_bucket", "apg-public")
+                name = a.get("original_name", a["asset_id"])
+                if not sp:
+                    continue
+                try:
+                    raw = asset_service.client.storage.from_(bucket).download(sp)
+                    if isinstance(raw, bytes):
+                        zf.writestr(name, raw)
+                    elif raw:
+                        zf.writestr(name, b"".join(raw))
+                except Exception:
+                    pass
+        buf.seek(0)
+        return StreamingResponse(
+            buf,
+            media_type="application/zip",
+            headers={"Content-Disposition": f"attachment; filename=\"{job_id}-images.zip\""},
+        )
 
     @app.post("/api/log")
     def log_post(request: LogRequest, user=Depends(user_dependency)) -> dict:
@@ -281,6 +399,11 @@ def create_app(
         job = jobs.get_job(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="Job not found")
+        if _is_supabase_mode(drive):
+            return _prepare_from_storage(
+                job.property_name.strip(), drive, caption_generator,
+                pipeline.extractor, job_id, jobs, download_root, asset_service,
+            )
         try:
             prepared = pipeline.prepare(job.property_name.strip())
         except Exception as error:
@@ -386,7 +509,11 @@ def create_app(
             raise HTTPException(status_code=404, detail="Not found")
         return FileResponse(static_dir / asset_name)
 
-    app.mount("/prepared", StaticFiles(directory=download_root / "_public"), name="prepared")
+    # In Supabase mode the /prepared mount is unused (images come from Storage
+    # signed URLs). In demo/local mode, mount the _public directory for
+    # /prepared/{id}/{name} image serving.
+    if not _is_supabase_mode(drive):
+        app.mount("/prepared", StaticFiles(directory=download_root / "_public"), name="prepared")
     return app
 
 
