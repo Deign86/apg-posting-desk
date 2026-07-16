@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+import traceback
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -19,10 +21,32 @@ def build_live_app() -> "FastAPI":
       - probe NVIDIA NIM reachability at module load
       - accept CLI arguments
 
-    It reads configuration from env (via load_config which already respects
-    environment variables over config.yaml defaults) and wires all Supabase
-    adapters: auth, queue, job store, asset repository, and tracking.
+    Reads configuration from env and wires all Supabase adapters.
+    Catches and exposes startup errors so the Vercel function returns a
+    descriptive message instead of a generic FUNCTION_INVOCATION_FAILED.
     """
+    from fastapi import FastAPI, Request
+    from fastapi.responses import PlainTextResponse
+
+    try:
+        return _build_app()
+    except Exception as exc:
+        tb = traceback.format_exc()
+        _init_error = str(exc)
+
+        app = FastAPI(title="APG Review Dashboard (ERROR)")
+
+        @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"])
+        async def error_handler(request: Request, path: str):
+            return PlainTextResponse(
+                f"Startup error: {_init_error}\n\nTraceback:\n{tb}",
+                status_code=500,
+            )
+
+        return app
+
+
+def _build_app():
     from .asset_service import AssetService
     from .supabase_assets import SupabaseAssetRepository
     from .supabase_auth import SupabaseTokenVerifier
@@ -62,9 +86,7 @@ def build_live_app() -> "FastAPI":
         min_images=config.processing.min_images,
     )
 
-    # Serverless /tmp is the only writable filesystem, and nothing persists
-    # across invocations — the prepared images go straight to Storage as signed
-    # URLs, so download_root is only needed for transient pipeline workspace.
+    # Serverless /tmp is the only writable filesystem
     _download_root = Path("/tmp/apg-prepared")
 
     app = create_app(
