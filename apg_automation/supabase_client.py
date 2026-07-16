@@ -6,7 +6,14 @@ import os
 def build_supabase_client(
     *, url: str | None = None, service_role_key: str | None = None
 ):
-    from supabase import create_client, ClientOptions
+    try:
+        from supabase import create_client, ClientOptions
+    except ImportError:
+        # Fallback for older supabase package versions
+        from supabase import Client, ClientOptions
+
+        def create_client(url, key, options=None):
+            return Client(url, key, options=options)  # type: ignore
 
     url = url or os.getenv("SUPABASE_URL", "")
     key = service_role_key or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
