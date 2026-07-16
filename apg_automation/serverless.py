@@ -37,7 +37,7 @@ def build_live_app() -> "FastAPI":
         app = FastAPI(title="APG Review Dashboard (ERROR)")
 
         @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"])
-        async def error_handler(request: Request, path: str):
+        async def error_handler(path: str):
             return PlainTextResponse(
                 f"Startup error: {_init_error}\n\nTraceback:\n{tb}",
                 status_code=500,
