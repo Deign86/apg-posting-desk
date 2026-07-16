@@ -138,8 +138,11 @@ def create_app(
     static_dir: Path = STATIC_DIR,
     seed_jobs: list[dict] | None = None,
 ) -> FastAPI:
-    (download_root / "_public").mkdir(parents=True, exist_ok=True)
-    static_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        (download_root / "_public").mkdir(parents=True, exist_ok=True)
+        static_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
     app = FastAPI(title="APG Review Dashboard")
     pipeline = ReviewPipeline(
         drive=drive,
