@@ -12,6 +12,7 @@ tracking:
 storage:
   bucket_private: "apg-private"
   bucket_public: "apg-public"
+  bucket_listings: "apr-listing"
   signed_url_ttl_seconds: 3600
 
 processing:

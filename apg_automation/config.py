@@ -30,7 +30,7 @@ class SupabaseConfig:
 class StorageConfig:
     bucket_private: str = "apg-private"
     bucket_public: str = "apg-public"
-    bucket_listings: str = "offerings"
+    bucket_listings: str = "apr-listing"
     signed_url_ttl_seconds: int = 3600
 
 
@@ -121,7 +121,7 @@ def load_config(path: str | Path = "config.yaml") -> AppConfig:
     storage=StorageConfig(
         bucket_private=_value(data, "storage.bucket_private", "STORAGE_BUCKET_PRIVATE", "apg-private"),
         bucket_public=_value(data, "storage.bucket_public", "STORAGE_BUCKET_PUBLIC", "apg-public"),
-        bucket_listings=_value(data, "storage.bucket_listings", "STORAGE_BUCKET_LISTINGS", "offerings"),
+        bucket_listings=_value(data, "storage.bucket_listings", "STORAGE_BUCKET_LISTINGS", "apr-listing"),
         signed_url_ttl_seconds=int(
                 _value(data, "storage.signed_url_ttl_seconds", "STORAGE_SIGNED_URL_TTL", 3600)
             ),

@@ -92,3 +92,26 @@ def is_property_folder(folder_path: Path) -> bool:
 
 SUPPORTED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 SUPPORTED_DOCUMENT_EXTENSIONS = {".docx", ".pdf", ".txt"}
+
+
+def is_property_folder_name(name: str) -> bool:
+    """String-based property folder detection (for Drive sources, no filesystem needed).
+    
+    Returns True if the folder name looks like it could be a property listing.
+    A valid property folder name must contain EITHER:
+      - A comma (city/area split), OR
+      - A numeric size value
+    Simple short names (single word, no comma, no number) are rejected.
+    """
+    parsed = parse_property_folder_name(name)
+    confidence = parsed.get("parse_confidence", "low")
+    if confidence == "low":
+        return False
+    has_comma = "," in name
+    has_number = bool(parsed.get("size_sqm"))
+    if not has_comma and not has_number:
+        return False
+    # Exclude folders where the only match was an empty city with extra text
+    if not parsed.get("location_city") and not parsed.get("location_area"):
+        return False
+    return True
