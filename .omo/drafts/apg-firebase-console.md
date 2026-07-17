@@ -49,9 +49,8 @@ approach: Build a Firebase-backed APG Posting Console matching the prototype's w
 
 ## Decisions (with rationale)
 - Plan will preserve manual Facebook posting; "fully functional" means the console workflow persists, validates, assigns, prepares, posts manually, and logs/tracks through the system.
-- Plan will use three roles: `admin`, `maam_jean`, and `user`.
+- Plan will use two roles: `admin` and `user`.
 - `admin` can manage users/roles, seed jobs, see all queues, override stuck jobs, and inspect logs.
-- `maam_jean` can create/assign/reassign jobs, approve captions/assets, see team queues, and prepare tracker sync.
 - `user` can claim/process assigned jobs, validate assets, generate/select captions, complete manual publish checklist, and submit Facebook URLs for logging.
 - Firestore collections will be planned as `users`, `jobs`, `jobs/{jobId}/activity`, and optional `settings`.
 - Backend will remain the trust boundary for external secrets and Google/NVIDIA operations; client Firestore writes are limited by rules.

@@ -10,7 +10,7 @@
 
 **Effort:** Large
 **Risk:** High - auth, roles, external Firebase state, backend routes, and a full UI rebuild all touch core behavior.
-**Decisions to sanity-check:** Manual Facebook posting stays in scope; Firebase project is `apg-posting-desk-deign-2026`; role names are `admin`, `maam_jean`, `user`.
+**Decisions to sanity-check:** Manual Facebook posting stays in scope; Firebase project is `apg-posting-desk-deign-2026`; role names are `admin` and `user`.
 
 Your next move: execute the plan, then run the final review and deploy. Full execution detail follows below.
 
@@ -21,7 +21,7 @@ Your next move: execute the plan, then run the final review and deploy. Full exe
 ## Scope
 ### Must have
 - Firebase project binding remains `apg-posting-desk-deign-2026` in `.firebaserc`, `.env`, `.env.example`, and MCP environment.
-- Role model supports `admin`, `maam_jean`, and `user` from Firebase ID token custom claims, with demo fallback roles for tests/local mode.
+- Role model supports `admin` and `user` from Firebase ID token custom claims, with demo fallback roles for tests/local mode.
 - Backend exposes job APIs for list, create/intake, validate/prepare, caption variant generation/selection, image selection, publish checklist, mark posted/log tracker, tracker preview, activity log, and role/user bootstrap views.
 - Firestore-backed implementation is used in live mode; in-memory demo implementation keeps `npm run dev` and pytest credential-free.
 - Frontend matches the prototype's functional surface: sidebar queues/counts, job list, metrics, intake/validation, assets, caption variants, manual publish checklist, tracker preview, activity log, theme toggle, role-aware controls.
