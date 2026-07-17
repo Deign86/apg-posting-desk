@@ -1,0 +1,14 @@
+# Dev / test / optional deps — NOT bundled into the Vercel serverless function.
+# Install separately for local development:
+#   python -m pip install -r requirements.txt -r requirements-dev.txt
+# Vercel installs only the runtime set from requirements.txt to stay under the
+# 225 MB function-size limit.
+pytest>=8.3.3
+uvicorn>=0.30.0
+# Firebase is DEPRECATED (replaced by Supabase Auth); kept only for legacy local demo.
+# firebase-admin>=6.5.0
+# Google services — needed for Drive-source ingest (--source-drive mode).
+google-api-python-client>=2.150.0
+google-auth-oauthlib>=1.2.1
+# Anthropic provider — uncomment if you use Anthropic for caption generation.
+# anthropic>=0.40.0
