@@ -1,7 +1,10 @@
 ﻿.env
 .env.vercel
+.env.local
+.env.*.local
 .env.*.local
 apg-workspace-key.json
+supabase/.temp/
 *-workspace-key.json
 .venv/
 __pycache__/
