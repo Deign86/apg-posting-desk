@@ -1,0 +1,25 @@
+node_modules
+.git
+.gitignore
+.gitnexus
+.env
+.env.local
+.env.*.local
+*.log
+logs
+downloads
+.apg
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.vite
+playwright-report
+test-results
+.omo
+.omc
+.context
+APR LISTING
+Novaliches, 440 Bagbag
+dist
+.vite

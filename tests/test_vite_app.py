@@ -7,7 +7,7 @@ def test_package_json_has_npm_dev_script_for_pwa():
 
     assert package["scripts"]["dev"].startswith("concurrently")
     assert package["scripts"]["dev"].endswith('"vite"')
-    assert "python -m apg_automation.main --serve" in package["scripts"]["dev"]
+    assert "apg_automation.main --serve" in package["scripts"]["dev"]
 
 
 def test_vite_config_proxies_api_and_prepared_assets():
@@ -15,7 +15,7 @@ def test_vite_config_proxies_api_and_prepared_assets():
 
     assert '"/api"' in config
     assert '"/prepared"' in config
-    assert "http://127.0.0.1:8000" in config
+    assert "http://127.0.0.1:8001" in config
 
 
 def test_frontend_entry_exists_and_calls_prepare_and_log_routes():
@@ -107,11 +107,12 @@ def test_frontend_source_declares_role_and_job_api_contracts():
     assert 'authFetch(`/api/jobs/${jobId}/activity`' in source
 
 
-def test_auth_card_contains_role_selector():
+def test_auth_card_contains_login_form():
+    """Login screen must show email/password form with Supabase-style auth."""
     html = (Path("index.html")).read_text(encoding="utf-8")
-    assert "data-role-option" in html, "Login screen must contain role option buttons with data-role-option attribute"
-    assert 'data-role="user"' in html, "Must offer the 'user' role option"
-    assert 'data-role="admin"' in html, "Must offer the 'admin' role option"
+    assert 'id="loginEmail"' in html, "Login screen must have email field"
+    assert 'id="loginPassword"' in html, "Login screen must have password field"
+    assert 'id="loginSubmit"' in html, "Login screen must have submit button"
     assert 'class="login-screen' in html, "Login must use login-screen layout"
 
 
@@ -120,7 +121,6 @@ def test_auth_card_role_selector_hidden_when_authenticated():
     # Login overlay is hidden on auth; app content becomes visible
     assert 'id="loginScreen"' in html, "Login screen overlay must exist"
     assert 'id="appContent"' in html, "App content must have id for toggle"
-    assert 'data-role-option' in html, "Role options must exist in login overlay"
 
 
 def test_styles_include_role_selector_rules():
@@ -149,11 +149,11 @@ def test_apply_role_gating_function_exists():
     assert 'data-admin-only' in source, "applyRoleGating must toggle [data-admin-only] elements"
 
 
-def test_role_selector_click_handlers_exist():
+def test_role_gating_uses_selected_role():
     source = Path("src/main.js").read_text(encoding="utf-8")
-    assert "data-role-option" in source, "main.js must bind click handlers to [data-role-option] buttons"
-    assert "selectedRole = btn.dataset.role" in source, \
-        "Click handler must update selectedRole from button dataset"
+    assert "selectedRole = session.user.role" in source, "main.js must set selectedRole from server response"
+    assert "applyRoleGating" in source, "main.js must define applyRoleGating function"
+    assert 'data-admin-only' in source, "applyRoleGating must toggle [data-admin-only] elements"
 
 
 def test_role_selector_hidden_on_auth():

@@ -1,8 +1,8 @@
-# PROJECT KNOWLEDGE BASE
+﻿# PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-06-30
-**Commit:** none; directory is not a git worktree
-**Branch:** none
+**Generated:** 2026-07-16
+**Commit:** 401116b (master)
+**Branch:** master
 
 ## OVERVIEW
 
@@ -21,6 +21,7 @@ APG Prototype System for Automated Posting/
 |-- src/                   # Vite frontend source for the PWA
 |-- public/                # Vite PWA manifest, icon, service worker
 |-- tests/                 # pytest coverage for backend, web app, config, UI wiring
+|-- e2e/                   # Playwright E2E test specs and config
 |-- docs/                  # setup notes for external MCP/Firebase integration
 |-- Novaliches, 440 Bagbag/ # local demo fixture, not source code
 |-- downloads/             # generated prepared assets, not source code
@@ -95,14 +96,18 @@ npm run dev:api
 npm run dev:web
 npm run build
 python -m pytest -q
+npm run test:e2e          # Run Playwright E2E tests (servers must be running: npm run dev)
+node e2e/smoke.mjs        # Quick smoke test (faster than full runner)
+vercel deploy --prod --yes --archive=tgz  # Deploy frontend to Vercel
 python -m apg_automation.main --dry-run --local-folder "C:/Users/Deign/Downloads/APG Prototype System for Automated Posting/Novaliches, 440 Bagbag"
 ```
 
 ## NOTES
 
-- Vite proxies `/api` and `/prepared` to `http://127.0.0.1:8000`.
+- Vite proxies `/api` and `/prepared` to `http://127.0.0.1:8001` (FastAPI demo mode).
 - `npm run dev` starts FastAPI in demo mode plus Vite.
 - `apg_automation/static/` and top-level Vite files can drift; update both only when the request needs both surfaces.
 - `CaptionReview.__eq__` intentionally compares clean reviews to strings for older tests.
-- This folder currently has no `.git`; commands that need commit or branch data will fail until initialized or opened from a repository.
-- Workspace is now a single-screen, 5-tab flow: Property details → Photos → Caption → Publish → Log. User-facing copy is intentionally jargon-free.
+- Git repo exists on `master` (remote: `Deign86/apg-posting-desk`).
+- - Vercel production URL: https://apg-posting-desk.vercel.app (frontend only; API rewrites need a backend host).
+Workspace is now a single-screen, 5-tab flow: Property details â†’ Photos â†’ Caption â†’ Publish â†’ Log. User-facing copy is intentionally jargon-free.

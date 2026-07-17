@@ -1,4 +1,6 @@
-.env
+﻿.env
+.env.vercel
+.env.*.local
 apg-workspace-key.json
 *-workspace-key.json
 .venv/
@@ -16,4 +18,13 @@ ui-debug.log
 preview.log
 server.log
 .vercel
-.env*.local
+.context/
+.omo/
+.omc/
+APR LISTING/
+test-results/
+playwright-report/
+vercel-*.log
+vite-e2e.log
+*.tgz
+nul
