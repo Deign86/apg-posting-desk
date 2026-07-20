@@ -10,16 +10,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 const supabase = supabaseUrl ? createClient(supabaseUrl, supabaseAnonKey) : null;
 let currentUser = null;
 
-const session = {
-  supabase_url: supabaseUrl || "demo",
-  user: {
-    uid: "demo-operator",
-    email: "demo@apg.local",
-    role: "user",
-    display_name: "Demo operator",
-  },
-};
-
+let session = null;
 let jobs = [];
 let activeJobId = null;
 let isLoggedIn = false;
@@ -184,15 +175,15 @@ function normalizeJob(raw) {
       id: img.id || `img${idx + 1}`,
       label: img.name || img.label || `Photo ${idx + 1}`,
       selected: Boolean(img.selected),
-      url: img.url || "/icon-192.png",
+      url: img.url || "",
     }))
     : [];
   return {
     id: raw.id || raw.property_id || "unknown",
     propertyName: raw.property_name || raw.propertyName || "Unnamed property",
-    assignedBy: raw.assigned_by || raw.assignedBy || "Ma'am Jean",
+    assignedBy: raw.assigned_by || raw.assignedBy || "",
     operator: raw.operator || "Unassigned",
-    dueDate: raw.due_date || raw.dueDate || new Date().toISOString().slice(0, 10),
+    dueDate: raw.due_date || raw.dueDate || "",
     driveUrl: raw.drive_url || raw.driveUrl || "",
     imageCount: raw.image_count ?? raw.imageCount ?? images.length,
     hasCaptionDoc: Boolean(
@@ -741,7 +732,7 @@ async function prepareSelectedJob(source) {
 function formPayload() {
   return {
     property_name: refs.propertyName.value.trim(),
-    assigned_by: refs.assignedBy.value.trim() || "Ma'am Jean",
+    assigned_by: refs.assignedBy.value.trim() || "",
     operator: refs.operatorName.value.trim() || "Unassigned",
     due_date: refs.dueDate.value,
     drive_url: refs.driveUrl.value.trim(),
@@ -1107,33 +1098,7 @@ el("simulatePipelineBtn").addEventListener("click", async () => {
 });
 
 el("newJobBtn").addEventListener("click", () => {
-  const nextId = "APG-0629-00" + (jobs.length + 1);
-  const job = {
-    id: nextId,
-    propertyName: "New Assigned Property",
-    assignedBy: "Ma'am Jean",
-    operator: "Unassigned",
-    dueDate: new Date().toISOString().slice(0, 10),
-    driveUrl: "",
-    imageCount: 0,
-    hasCaptionDoc: false,
-    docName: "",
-    status: "missing-assets",
-    trackerStatus: "pending",
-    details: "",
-    images: [],
-    variants: [],
-    finalCaption: "",
-    facebookLink: "",
-    activity: [],
-  };
-  jobs.unshift(job);
-  activeJobId = job.id;
-  resetWorkflowState();
-  hydrateForm();
-  renderAll();
-  log("Created a new property");
-  toast("New property added.");
+  toast("Use the job intake form to create a new job from Drive.");
 });
 
 el("processNext").addEventListener("click", async () => {

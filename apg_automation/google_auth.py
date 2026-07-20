@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 
 GOOGLE_SCOPES = [
@@ -22,6 +23,15 @@ def build_google_credentials(
         import google.auth
 
         default_credentials_loader = google.auth.default
+
+    # Prefer GOOGLE_SERVICE_ACCOUNT_JSON (env var holding the full JSON string)
+    # over GOOGLE_APPLICATION_CREDENTIALS (file path) over ADC.
+    svc_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+    if svc_json:
+        info = json.loads(svc_json)
+        return service_account_credentials.from_service_account_info(
+            info, scopes=GOOGLE_SCOPES,
+        )
 
     credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
     if credentials_path:

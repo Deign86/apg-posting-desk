@@ -76,12 +76,12 @@ def main() -> int:
             print(error)
             return 2
 
-  if args.demo:
-    local_folder = args.local_folder
-    if local_folder is None and property_names:
-      local_folder = property_names[0]
-      property_names = []
-    drive = LocalFolderRepository(local_folder)
+    if args.demo:
+        local_folder = args.local_folder
+        if local_folder is None and property_names:
+            local_folder = property_names[0]
+            property_names = []
+        drive = LocalFolderRepository(local_folder)
     elif args.local_folder:
         drive = LocalFolderRepository(args.local_folder)
     else:

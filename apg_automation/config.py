@@ -97,8 +97,9 @@ def load_config(path: str | Path = "config.yaml") -> AppConfig:
         google_drive=GoogleDriveConfig(
             listings_folder_id=_value(
                 data, "google_drive.listings_folder_id",
-                "GOOGLE_DRIVE_LISTINGS_FOLDER_ID",
+                "GOOGLE_DRIVE_FOLDER_ID",
                 "1GXeGULYswb7jXcMGCCRm2RQ_h0EKsDll",
+                alt_env="GOOGLE_DRIVE_LISTINGS_FOLDER_ID",
             )
         ),
         tracking=TrackingConfig(
@@ -141,9 +142,14 @@ def load_config(path: str | Path = "config.yaml") -> AppConfig:
     )
 
 
-def _value(data: dict[str, Any], dotted_key: str, env_key: str, default: Any) -> Any:
-    if env_key in os.environ and os.environ[env_key] != "":
-        return os.environ[env_key]
+def _value(data: dict[str, Any], dotted_key: str, env_key: str, default: Any, *, alt_env: str | None = None) -> Any:
+    """Resolve a config value from env var, YAML, or default.
+    
+    Checks env_key first, then alt_env if provided, then the YAML dotted key, then default.
+    """
+    for key in (env_key, alt_env):
+        if key and key in os.environ and os.environ[key] != "":
+            return os.environ[key]
     current: Any = data
     for key in dotted_key.split("."):
         if not isinstance(current, dict) or key not in current:

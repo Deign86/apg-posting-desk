@@ -47,8 +47,7 @@ def build_live_app() -> "FastAPI":
 
 
 def _build_app():
-    from .asset_service import AssetService
-    from .supabase_assets import SupabaseAssetRepository
+    from .google_drive import GoogleDriveRepository, build_drive_service
     from .supabase_auth import SupabaseTokenVerifier
     from .supabase_client import build_supabase_client
     from .supabase_job_store import SupabaseJobStore
@@ -70,20 +69,16 @@ def _build_app():
         max_retries=config.processing.max_retries,
     )
 
-    # -- Supabase-backed services --
+    # -- Supabase-backed services (auth, queue, jobs, tracking) --
     _tracker = SupabaseTracker(_supabase, posted_by=config.posted_by)
     _auth_verifier = SupabaseTokenVerifier(client=_supabase)
     _queue = SupabasePropertyQueue(_supabase)
     _job_store = SupabaseJobStore(_supabase)
 
-    # -- Canonical asset service + repository (no Google Drive) --
-    _asset_service = AssetService.from_config(config)
-    _drive = SupabaseAssetRepository(
-        _supabase,
-        bucket_private=config.storage.bucket_private,
-        bucket_public=config.storage.bucket_public,
-        signed_url_ttl=config.storage.signed_url_ttl_seconds,
-        min_images=config.processing.min_images,
+    # -- Google Drive as the single source of truth for property assets --
+    _drive = GoogleDriveRepository(
+        service=build_drive_service(),
+        listings_folder_id=config.google_drive.listings_folder_id,
     )
 
     # Serverless /tmp is the only writable filesystem
@@ -96,7 +91,6 @@ def _build_app():
         auth_verifier=_auth_verifier,
         queue=_queue,
         job_store=_job_store,
-        asset_service=_asset_service,
         auth_required=True,
         download_root=_download_root,
     )

@@ -10,9 +10,9 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-
-from .auth_deps import require_role
 from .job_store import InMemoryJobStore
+from .auth_deps import require_role
+
 from .review_pipeline import PreparedPost, ReviewPipeline
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -58,70 +58,6 @@ def _now_time() -> str:
     return datetime.now(ZoneInfo("Asia/Manila")).strftime("%H:%M")
 
 
-def _is_supabase_mode(drive) -> bool:
-    """Return True when the drive adapter supports signed URLs (Supabase mode)."""
-    return hasattr(drive, "get_signed_url")
-
-
-def _prepare_from_storage(
-    property_name: str, drive, caption_generator, _extractor,
-    job_id: str, jobs, download_root, asset_service,
-) -> dict:
-    folder = drive.find_property_folder(property_name)
-    if folder is None:
-        raise HTTPException(status_code=404, detail="Property not found")
-
-    image_files = folder.get("image_files", [])[:3]
-    doc_files = folder.get("document_files", [])
-    if len(image_files) < 1:
-        raise HTTPException(status_code=400, detail="Insufficient images")
-    if not doc_files:
-        raise HTTPException(status_code=400, detail="Missing caption document")
-
-    doc = doc_files[0]
-    doc_path = download_root / "captions" / doc["name"]
-    doc_path.parent.mkdir(parents=True, exist_ok=True)
-    drive.download_file(doc["id"], doc_path, mime_type=doc.get("mimeType", ""))
-
-    caption_details = _extractor.extract_document_text(doc_path)
-    review = caption_generator.generate(caption_details)
-
-    public_images = []
-    asset_ids = []
-    for img in image_files[:3]:
-        asset_id = img["id"]
-        try:
-            url = drive.get_signed_url(asset_id)
-        except Exception:
-            url = ""
-        public_images.append({
-            "name": img["name"],
-            "url": url,
-            "asset_id": asset_id,
-            "selected": True,
-        })
-        asset_ids.append(asset_id)
-
-    prepared_data = {
-        "id": job_id,
-        "property_name": property_name,
-        "caption": review.text,
-        "caption_document_name": doc["name"],
-        "caption_details": caption_details,
-        "images": public_images,
-        "variants": [review.text],
-        "violations": review.violations or [],
-        "requires_manual_review": review.requires_manual_review,
-        "download_zip_url": f"/api/jobs/{job_id}/prepared.zip",
-    }
-    jobs.set_prepared(job_id, prepared_data)
-    if asset_ids:
-        jobs.select_job_assets(job_id, asset_ids)
-    jobs.add_activity(job_id, {
-        "at": _now_time(),
-        "text": "Pipeline prepared Supabase Storage assets and caption.",
-    })
-    return prepared_data
 
 
 def create_app(
@@ -136,7 +72,6 @@ def create_app(
     auth_required: bool = False,
     download_root: Path = Path("prepared"),
     static_dir: Path = STATIC_DIR,
-    seed_jobs: list[dict] | None = None,
 ) -> FastAPI:
     try:
         (download_root / "_public").mkdir(parents=True, exist_ok=True)
@@ -152,65 +87,42 @@ def create_app(
     )
     preparations: dict[str, PreparedPost] = {}
     jobs = job_store if job_store is not None else InMemoryJobStore()
-    if seed_jobs:
-        for sj in seed_jobs:
-            try:
-                jobs.create(**sj)
-            except Exception:
-                pass  # ignore duplicate seeds
-    _demo_display_names = {
-        "admin": "Demo Admin",
-        "user": "Demo User",
-    }
-
-    def _demo_user(
+    def _user_from_header_or_token(
+        authorization: str | None = Header(default=None, alias="Authorization"),
         x_demo_role: str | None = Header(default=None, alias="X-Demo-Role"),
     ) -> dict:
-        role = x_demo_role if x_demo_role in ("admin", "user") else "user"
+        # X-Demo-Role support for tests and demo environments
+        if x_demo_role and x_demo_role in ("admin", "user"):
+            return {
+                "uid": "demo-" + x_demo_role,
+                "email": x_demo_role + "@apg.local",
+                "role": x_demo_role,
+                "display_name": x_demo_role.title(),
+            }
+        if auth_required and auth_verifier is None:
+            raise HTTPException(status_code=401, detail="Auth not configured")
+        if auth_verifier is not None:
+            if not authorization or not authorization.startswith("Bearer "):
+                raise HTTPException(status_code=401, detail="Missing access token")
+            token = authorization.removeprefix("Bearer ").strip()
+            try:
+                return auth_verifier.verify(token)
+            except Exception as err:
+                raise HTTPException(status_code=401, detail="Invalid access token") from err
+        import uuid
         return {
-            "uid": "demo",
-            "email": "demo@apg.local",
-            "role": role,
-            "display_name": _demo_display_names.get(role, "Demo User"),
+            "uid": str(uuid.uuid4()),
+            "email": "anonymous@apg.local",
+            "role": "user",
+            "display_name": "Anonymous",
         }
 
-    def _supabase_user_dep(v):
-        from .supabase_auth import require_supabase_user
-        return require_supabase_user(v)
-
-    user_dependency = (
-        _supabase_user_dep(auth_verifier)
-        if auth_required and auth_verifier is not None
-        else _demo_user
-    )
+    user_dependency = _user_from_header_or_token
     admin_dependency = require_role("admin", user_dependency=user_dependency)
 
     @app.get("/api/session")
     def session(user=Depends(user_dependency)) -> dict:
         return {"user": user}
-
-    _demo_seeded_accounts = {
-        "admin@apg.local": {"password": "admin@123", "role": "admin", "display_name": "Admin"},
-        "operator@apg.local": {"password": "oper@123", "role": "user", "display_name": "Operator"},
-    }
-
-    @app.post("/api/login")
-    def login(request: LoginRequest) -> dict:
-        account = _demo_seeded_accounts.get(request.email.strip().lower())
-        if account:
-            if request.password != account["password"]:
-                raise HTTPException(status_code=401, detail="Invalid email or password")
-            return {
-                "email": request.email,
-                "role": account["role"],
-                "display_name": account["display_name"],
-                "status": "demo",
-            }
-        raise HTTPException(status_code=401, detail="Invalid email or password")
-
-    @app.post("/api/logout")
-    def logout() -> dict:
-        return {"status": "logged_out"}
 
     @app.post("/api/admin/users", status_code=201)
     def create_user(request: CreateUserRequest, user=Depends(admin_dependency)) -> dict:
@@ -231,29 +143,13 @@ def create_app(
 
     @app.post("/api/admin/seed")
     def seed_accounts(user=Depends(admin_dependency)) -> dict:
-        if auth_verifier is None:
-            return {"seeded": 2, "accounts": ["admin@apg.local", "operator@apg.local"]}
         return auth_verifier.seed_accounts()
 
     @app.post("/api/prepare")
     def prepare(request: PrepareRequest, user=Depends(user_dependency)) -> dict:
         prop_name = request.property_name.strip()
-        if _is_supabase_mode(drive):
-            # In Supabase mode, the frontend flow uses /api/jobs/{id}/prepare;
+        # In Supabase mode, the frontend flow uses /api/jobs/{id}/prepare;
             # this legacy route returns a lightweight placeholder.
-            folder = drive.find_property_folder(prop_name)
-            preview = pipeline.caption_generator.generate(prop_name)
-            return {
-                "preparation_id": uuid.uuid4().hex,
-                "property_name": prop_name,
-                "caption": preview.text,
-                "caption_document_name": "",
-                "caption_details": "",
-                "images": [],
-                "download_zip_url": "",
-                "requires_manual_review": preview.requires_manual_review,
-                "violations": preview.violations or [],
-            }
         try:
             prepared = pipeline.prepare(prop_name)
         except Exception as error:
@@ -344,6 +240,24 @@ def create_app(
             headers={"Content-Disposition": f"attachment; filename=\"{job_id}-images.zip\""},
         )
 
+    @app.get("/api/drive/files/{file_id}")
+    def drive_file(file_id: str, user=Depends(user_dependency)) -> FileResponse:
+        """Stream a Drive file bytes directly to the browser."""
+        from fastapi.responses import StreamingResponse
+        try:
+            import io
+            from googleapiclient.http import MediaIoBaseDownload
+            request = drive.service.files().get_media(fileId=file_id)
+            buf = io.BytesIO()
+            downloader = MediaIoBaseDownload(buf, request)
+            done = False
+            while not done:
+                _, done = downloader.next_chunk()
+            buf.seek(0)
+            return StreamingResponse(buf, media_type="image/jpeg")
+        except Exception as e:
+            raise HTTPException(status_code=404, detail=f"File not found: {e}")
+
     @app.post("/api/log")
     def log_post(request: LogRequest, user=Depends(user_dependency)) -> dict:
         try:
@@ -352,19 +266,34 @@ def create_app(
             raise HTTPException(status_code=400, detail=str(error)) from error
         return {"status": "logged"}
 
+    @app.get("/api/drive/properties")
+    def drive_properties(user=Depends(user_dependency)) -> dict:
+        folders = []
+        try:
+            folders = drive.list_property_folders()
+        except Exception as e:
+            pass
+        return {"properties": folders}
+
     @app.get("/api/jobs")
     def list_jobs(user=Depends(user_dependency)) -> dict:
         return {"jobs": jobs.list_jobs(), "counts": jobs.counts()}
 
     @app.post("/api/jobs", status_code=201)
     def create_job(request: JobIntakeRequest, user=Depends(admin_dependency)) -> dict:
+        drive_url = request.drive_url.strip()
+        property_name = request.property_name.strip()
+        if drive_url:
+            folder_id = drive.resolve_folder_id(drive_url)
+            if folder_id and not folder_id.startswith("https://"):
+                drive_url = f"https://drive.google.com/drive/folders/{folder_id}"
         return jobs.create(
-            property_name=request.property_name.strip(),
+            property_name=property_name,
             offering_id=request.offering_id.strip(),
             assigned_by=request.assigned_by.strip(),
             operator=request.operator.strip(),
             due_date=request.due_date.strip(),
-            drive_url=request.drive_url.strip(),
+            drive_url=drive_url,
         )
 
     @app.post("/api/jobs/{job_id}/mark-posted")
@@ -388,25 +317,27 @@ def create_app(
         if job is None:
             raise HTTPException(status_code=404, detail="Job not found")
         try:
-            queue = pipeline.queue.build_queue([job.property_name])
-            ok = job.property_name not in queue.errors and len(queue.ready) > 0
-            errors = queue.errors.get(job.property_name, "")
-        except Exception:
-            ok = False
-            errors = "Unable to validate Drive folder"
-        jobs.add_activity(job_id, {"at": _now_time(), "text": f"Validation {'passed' if ok else 'failed'}"})
-        return {"ok": ok, "data": {"property_name": job.property_name, "errors": errors}}
+            folder = drive.find_property_folder(job.property_name)
+            if folder is None:
+                return {"valid": False, "image_count": 0, "has_caption_doc": False, "errors": ["Property folder not found in Drive"]}
+            image_count = len(folder.get("image_files", []))
+            has_caption_doc = len(folder.get("document_files", [])) > 0
+            errors = []
+            if image_count < 3:
+                errors.append(f"Only {image_count} image(s) found (minimum 3 required)")
+            if not has_caption_doc:
+                errors.append("No caption document found")
+            valid = len(errors) == 0
+            jobs.add_activity(job_id, {"at": _now_time(), "text": f"Validation {'passed' if valid else 'failed'}: {image_count} images, caption doc {'present' if has_caption_doc else 'missing'}"})
+            return {"valid": valid, "image_count": image_count, "has_caption_doc": has_caption_doc, "errors": errors}
+        except Exception as e:
+            return {"valid": False, "image_count": 0, "has_caption_doc": False, "errors": [f"Validation error: {e}"]}
 
     @app.post("/api/jobs/{job_id}/prepare")
     def prepare_job(job_id: str, user=Depends(user_dependency)) -> dict:
         job = jobs.get_job(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="Job not found")
-        if _is_supabase_mode(drive):
-            return _prepare_from_storage(
-                job.property_name.strip(), drive, caption_generator,
-                pipeline.extractor, job_id, jobs, download_root, asset_service,
-            )
         try:
             prepared = pipeline.prepare(job.property_name.strip())
         except Exception as error:
@@ -450,16 +381,24 @@ def create_app(
             raise HTTPException(status_code=404, detail="Job not found")
         details = job.caption_details or job.property_name
         review = pipeline.caption_generator.generate(details)
-        variants = [review.text]
-        jobs.add_activity(job_id, {"at": _now_time(), "text": "Caption variants generated with APG rules."})
-        return {"variants": variants}
+        warnings = list(review.violations or [])
+        jobs.add_activity(job_id, {"at": _now_time(), "text": "Caption generated with APG rules."})
+        return {"caption": review.text, "warnings": warnings}
 
     @app.get("/api/jobs/{job_id}/activity")
     def job_activity(job_id: str, user=Depends(user_dependency)) -> dict:
         job = jobs.get_job(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="Job not found")
-        return {"activity": jobs.get_activity(job_id)}
+        raw = jobs.get_activity(job_id)
+        events = []
+        for entry in raw:
+            events.append({
+                "timestamp": entry.get("at", ""),
+                "action": entry.get("text", ""),
+                "actor": entry.get("actor", "system"),
+            })
+        return {"events": events}
 
     @app.post("/api/queue/next")
     def next_property(user=Depends(admin_dependency)) -> dict:
@@ -515,8 +454,10 @@ def create_app(
     # In Supabase mode the /prepared mount is unused (images come from Storage
     # signed URLs). In demo/local mode, mount the _public directory for
     # /prepared/{id}/{name} image serving.
-    if not _is_supabase_mode(drive):
+    try:
         app.mount("/prepared", StaticFiles(directory=download_root / "_public"), name="prepared")
+    except Exception:
+        pass
     return app
 
 
