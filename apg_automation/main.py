@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 from pathlib import Path
@@ -76,9 +76,12 @@ def main() -> int:
             print(error)
             return 2
 
-    if args.demo:
-        local_folder = args.local_folder or "Novaliches, 440 Bagbag"
-        drive = LocalFolderRepository(local_folder)
+  if args.demo:
+    local_folder = args.local_folder
+    if local_folder is None and property_names:
+      local_folder = property_names[0]
+      property_names = []
+    drive = LocalFolderRepository(local_folder)
     elif args.local_folder:
         drive = LocalFolderRepository(args.local_folder)
     else:
@@ -173,11 +176,6 @@ def main() -> int:
             queue = SupabasePropertyQueue(_supabase_client)
             job_store = SupabaseJobStore(_supabase_client)
             auth_required = True
-            try:
-                result = auth_verifier.seed_accounts()
-                print(f"Seeded {result['seeded']} account(s): {', '.join(result['accounts'])}")
-            except Exception as exc:
-                print(f"Seed skipped (accounts may already exist): {exc}")
             asset_service = AssetService.from_config(config)
             if args.asset_source == "supabase":
                 from .supabase_assets import SupabaseAssetRepository
@@ -210,20 +208,6 @@ def main() -> int:
     except Exception as exc:
         print(f"NVIDIA NIM probe skipped: {exc}")
 
-    # Auto-seed a job for the local fixture so the workspace lists it immediately.
-    # Applies whenever a local property folder is supplied (local or demo mode).
-    _seed_jobs = []
-    if args.local_folder:
-        _fixture_name = Path(args.local_folder).name
-        _seed_jobs.append({
-            "property_name": _fixture_name,
-            "assigned_by": "Ma'am Jean",
-            "operator": "Unassigned",
-            "due_date": "",
-            "drive_url": str(Path(args.local_folder).resolve()),
-        })
-        print(f"Seeded job for local fixture: {_fixture_name}")
-
     app = create_app(
         drive=drive,
         caption_generator=caption_generator,
@@ -234,7 +218,6 @@ def main() -> int:
         asset_service=asset_service,
         auth_required=auth_required,
         download_root=Path("downloads"),
-        seed_jobs=_seed_jobs,
     )
     import uvicorn
 
